@@ -503,18 +503,21 @@ function updateRemote(dt){ for(const b of rbullets){ b.life-=dt; b.m.position.x+
 function alivePlayers(){ const out=[]; if(!P.down&&!over)out.push({id:NET.me,x:P.x,y:P.y,z:P.z,dist:DIST}); for(const [id,pl] of NET.players){ if(id===NET.me||(id==='host'&&NET.role==='host'))continue; if(pl.down||pl.g==null)continue; out.push({id,x:pl.x,y:pl.y,z:pl.z,dist:pl.dist||DIST}); } return out; }
 function alivePlayersWithMagnet(){ const out=[]; if(!P.down&&!over)out.push({id:NET.me,x:P.x,y:P.y,z:P.z,magnet:P.magnet,r:P.r}); for(const [id,pl] of NET.players){ if(id==='host'||!pl.g||pl.down)continue; out.push({id,x:pl.x,y:pl.y,z:pl.z,magnet:pl.magnet||8,r:0.6}); } return out; }
 function targetFor(e){ const ps=alivePlayers(); if(!ps.length)return null; let b=ps[0],bd=1e18; for(const q of ps){ const d=(q.x-e.x)**2+(q.z-e.z)**2; if(d<bd){bd=d;b=q;} } return b; }
-function netSnapshot(){ const r2=v=>Math.round(v*50)/50; const en=[]; for(const e of enemies){ if(e.dead||e.gone)continue; en.push([e.id,e.type,r2(e.x),r2(e.y),r2(e.z),Math.round(e.hp),Math.round(e.maxhp),e.face,(e.burn>0?1:0)|(e.slow>0?2:0)|(e.freeze>0?4:0)]); }
-  const gm=[]; for(const g of gems){ if(g.dead)continue; gm.push([g.gid,r2(g.x),r2(g.y),r2(g.z),Math.round(g.v*10)/10,g.heart?1:0]); }
+function playerCount(){ let n=1; if(NET.role==='host')for(const [id,pl] of NET.players){ if(id!=='host'&&pl.lastSeen&&performance.now()-pl.lastSeen<8000)n++; } return n; }
+function nearAnyPlayer(x,z,rad){ const r2=rad*rad; if((x-P.x)**2+(z-P.z)**2<r2)return true; for(const [id,pl] of NET.players){ if(id==='host')continue; if((x-pl.x)**2+(z-pl.z)**2<r2)return true; } return false; }
+function netSnapshot(){ const r1=v=>Math.round(v*10); const en=[]; for(const e of enemies){ if(e.dead||e.gone)continue; if(!e.boss&&!nearAnyPlayer(e.x,e.z,80))continue; en.push([e.id,e.type,r1(e.x),r1(e.y),r1(e.z),Math.round(e.hp),e.face,(e.burn>0?1:0)|(e.slow>0?2:0)|(e.freeze>0?4:0)]); }
+  const gm=[]; for(const g of gems){ if(g.dead)continue; if(!nearAnyPlayer(g.x,g.z,50))continue; gm.push([g.gid,r1(g.x),r1(g.y),r1(g.z),Math.round(g.v*10),g.heart?1:0]); if(gm.length>=160)break; }
   return {t:'snap',T:Math.round(T*10)/10,wave,en,gm,boss:bossRef&&!bossRef.dead?[Math.round(bossRef.hp),Math.round(bossRef.maxhp)]:null}; }
 function applySnap(m){ T=m.T; if(m.wave!==wave){ wave=m.wave; if(wave>NET.lastWave){AU.wave();} NET.lastWave=wave; }
-  const seen=new Set(); for(const row of m.en){ const [id,type,x,y,z,hp,maxhp,face,fl]=row; seen.add(id); let e=enemyById(id); if(!e){ if(!ETYPES[type])continue; e=spawnEnemy(type,x,z); e.id=id; e.x=x;e.y=y;e.z=z; e.g.position.set(x,y,z); } e.tx=x;e.ty=y;e.tz=z; e.hp=hp;e.maxhp=maxhp; e.face=face; e.fBurn=!!(fl&1); e.fSlow=!!(fl&2); e.fFreeze=!!(fl&4); }
-  for(const e of enemies){ if(!seen.has(e.id)&&!e.dead&&!e.fling){ e.gone=true; scene.remove(e.g); } }
-  const gseen=new Set(); for(const row of m.gm){ const [gid,x,y,z,v,heart]=row; gseen.add(gid); let g=gems.find(q=>q.gid===gid); if(!g){ g=addGem(x,y,z,v,!!heart,gid); } g.tx=x;g.ty=y;g.tz=z; g.v=v; }
-  for(const g of gems){ if(!gseen.has(g.gid)&&!g.dead){ g.dead=true; scene.remove(g.m); } }
+  const seen=new Set(); const byId=new Map(); for(const e of enemies)byId.set(e.id,e);
+  for(const row of m.en){ const [id,type,xi,yi,zi,hp,face,fl]=row; const x=xi/10,y=yi/10,z=zi/10; seen.add(id); let e=byId.get(id); if(!e){ if(!ETYPES[type])continue; e=spawnEnemy(type,x,z); e.id=id; e.x=x;e.y=y;e.z=z; e.g.position.set(x,y,z); e.maxhp=Math.max(e.maxhp,hp); } e.tx=x;e.ty=y;e.tz=z; e.hp=hp; if(hp>e.maxhp)e.maxhp=hp; e.face=face; e.fBurn=!!(fl&1); e.fSlow=!!(fl&2); e.fFreeze=!!(fl&4); e.unseenT=0; }
+  for(const e of enemies){ if(!seen.has(e.id)&&!e.dead&&!e.fling){ e.unseenT=(e.unseenT||0)+1; if(e.unseenT>12){ e.gone=true; scene.remove(e.g); } } }
+  const gseen=new Set(); for(const row of m.gm){ const [gid,xi,yi,zi,vi,heart]=row; const x=xi/10,y=yi/10,z=zi/10,v=vi/10; gseen.add(gid); let g=gems.find(q=>q.gid===gid); if(!g){ g=addGem(x,y,z,v,!!heart,gid); } g.tx=x;g.ty=y;g.tz=z; g.v=v; g.unseenT=0; }
+  for(const g of gems){ if(!gseen.has(g.gid)&&!g.dead){ g.unseenT=(g.unseenT||0)+1; if(g.unseenT>12){ g.dead=true; scene.remove(g.m); } } }
   if(m.boss){ $('bossw').hidden=false; $('bossb').style.width=clamp(m.boss[0]/m.boss[1]*100,0,100)+'%'; } else $('bossw').hidden=true; }
 function myPState(){ const sh=NET.shots.slice(0,30); NET.shots.length=0; return {t:'p',x:Math.round(P.x*100)/100,y:Math.round(P.y*100)/100,z:Math.round(P.z*100)/100,f:Math.cos(P.faceA)<0?-1:1,hp:Math.round(P.hp),mh:P.maxhp,lv:P.level,dn:P.down?1:0,k:P.kills,mg:P.magnet,gr:P.greedy,xb:P.xpbonus,hm:P.heartMul,mv:Math.hypot(P.vx,P.vz)>0.5?1:0,sh}; }
 function netTick(dt){ if(!NET.role||!running)return; NET.pT-=dt; if(NET.pT<=0){ NET.pT=1/20; const m=myPState(); if(NET.role==='host'){ const pl=ensurePlayer('host',{host:true}); applyPState(pl,m); pl.x=P.x;pl.y=P.y;pl.z=P.z; netBroadcast({...m,id:'host'}); } else toHost(m); }
-  if(NET.role==='host'){ NET.snapT-=dt; if(NET.snapT<=0){ NET.snapT=1/12; netBroadcast(netSnapshot()); }
+  if(NET.role==='host'){ NET.snapT-=dt; if(NET.snapT<=0){ NET.snapT=1/10; const snap=netSnapshot(); for(const [id,c] of NET.conns){ const dc=c.dataChannel; if(dc&&dc.bufferedAmount>48000)continue; netSend(c,snap); } }
     let anyUp=!P.down; for(const [id,pl] of NET.players){ if(id==='host')continue; if(pl.g&&!pl.down&&performance.now()-(pl.lastSeen||0)<5000)anyUp=true; } if(!anyUp&&!over){ netBroadcast({t:'over'}); netOver(); } }
   else { const hits=[]; for(const e of enemies){ if(e.gone||e.dead)continue; const pd=NET.pend.get(e.id); const kx=e.kx,kz=e.kz; if(pd||Math.abs(kx)>0.01||Math.abs(kz)>0.01||e.burn>0||e.slow>0||e.freeze>0||e.jitter>0){ hits.push({id:e.id,dmg:pd?Math.round(pd.dmg*10)/10:0,crit:pd?pd.crit:false,kx:Math.round(kx*10)/10,kz:Math.round(kz*10)/10,burn:e.burn>0?e.burn:0,slow:e.slow>0?e.slow:0,freeze:e.freeze>0?e.freeze:0,jitter:e.jitter>0?e.jitter:0}); e.kx=e.kz=0; e.burn=e.slow=e.freeze=e.jitter=0; } } NET.pend.clear(); if(hits.length)toHost({t:'hits',hits}); }
   // revive: hold E near a downed teammate
@@ -687,7 +690,8 @@ function renderChips(){ const m={}; P.traits.forEach(id=>m[id]=(m[id]||0)+1); re
 
 // ---------- enemies ----------
 function makeSprite(name,h){ const t=TEX[name]; const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,alphaTest:0.3,fog:true})); const ar=t.image.width/t.image.height; sp.scale.set(h*ar,h,1); sp.center.set(0.5,0); return sp; }
-function spawnEnemy(type,x,z){ const d=ETYPES[type]; const hpMul=1+T/60*0.3+Math.pow(T/60,1.6)*0.08;
+function diffMul(){ return (1+0.25*Math.min(1,wave/15))*(1+0.15*(playerCount()-1)); }
+function spawnEnemy(type,x,z){ const d=ETYPES[type]; const hpMul=(1+T/60*0.3+Math.pow(T/60,1.6)*0.08)*(NET.role==='client'?1:diffMul());
   const g=new THREE.Group(); const sp=makeSprite(d.spr,d.h); g.add(sp); const sh=new THREE.Mesh(shadowBlobGeo,shadowBlobMat); sh.rotation.x=-Math.PI/2; sh.position.y=0.02; sh.scale.setScalar(d.h*0.28); g.add(sh);
   const e={type,g,sp,sh,x,z,y:0,r:d.h*0.32,h:d.h,hp:d.hp*hpMul,maxhp:d.hp*hpMul,spd:d.spd*(1+Math.min(0.5,T/500)),xp:d.xp,dmg:d.dmg,kind:d.kind,id:eid++,slow:0,burn:0,burnT:0,phase:R(TAU),flash:0,kx:0,kz:0,orbT:0,dead:false,boss:d.kind==='boss',face:1,ar:sp.scale.x/sp.scale.y,squash:0};
   const h0=floorTile(x,z); e.y=isNaN(h0)?0:h0; if(e.kind==='fly')e.y+=R(1.5,3); g.position.set(x,e.y,z); scene.add(g); enemies.push(e); return e; }
@@ -816,8 +820,8 @@ function update(dt){
   // waves + spawns (host only)
   if(NET.role!=='client'){
   waveT+=dt; if(waveT>30){waveT=0;wave++;AU.wave();bigmsg('wave '+wave,1200);if(NET.role==='host')netBroadcast({t:'msg',s:'wave '+wave});}
-  const rate=Math.max(0.09,1.0-Math.min(0.75,T/220*0.6))/P.nightmare; spawnT-=dt;
-  while(spawnT<=0){ spawnT+=rate; if(enemies.length<220){ spawnEdge(pickType()); if(T>150&&Math.random()<0.25)spawnEdge(pickType()); } }
+  const np=playerCount(); const rate=Math.max(0.07,1.0-Math.min(0.75,T/220*0.6))/P.nightmare/(1+0.5*(np-1))/(1+0.25*Math.min(1,wave/15)); spawnT-=dt;
+  while(spawnT<=0){ spawnT+=rate; if(enemies.length<220+60*(np-1)){ spawnEdge(pickType()); if(T>150&&Math.random()<0.25+0.1*Math.min(1,wave/15))spawnEdge(pickType()); } }
   if(T>=bossNext&&!bossRef){ bossRef=spawnBoss(); if(bossRef){ bossNext=1e9; AU.boss(); doShake(0.8); bigmsg('oh no. he\'s huge.'); $('bossw').hidden=false; log('<b>the big one</b> is in the room.'); if(NET.role==='host')netBroadcast({t:'msg',s:'oh no. he\'s huge.',boss:1}); } else bossNext=T+3; }
   }
   if(P.nap){ P.napT-=dt; if(P.napT<=0){ P.napT=Math.max(5,15-(P.nap-1)*2); let n=0; for(const e of enemies){ if(e.dead)continue; if(Math.hypot(e.x-P.x,e.z-P.z)<40){e.freeze=Math.max(e.freeze||0,2.5);n++;} } bigmsg('nap time',900); AU.tone(AU.f(0,1),{type:'sine',dur:1.2,vol:0.15,verb:0.9}); } }
