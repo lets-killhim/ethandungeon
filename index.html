@@ -668,7 +668,7 @@ const CLASSES={
  bikini:{n:'water ethan',p:'+1 xp gem per kill',a:'whistle',ad:'freezes every ethan within 25 for 2.5s',cd:12,pf:p=>{p.greedy+=1},act:()=>{ for(const e of enemies){ if(!e.dead&&!e.boss&&Math.hypot(e.x-P.x,e.z-P.z)<25)e.freeze=Math.max(e.freeze||0,2.5); } AU.tone(2200,{type:'square',dur:0.35,vol:0.12,slide:2600,verb:0.5}); ring(P.x,P.y,P.z,25,0x8fb8ff,0.6); }},
  shades:{n:'rapper ethan',p:'12% chance to dodge any hit',a:'flow',ad:'4s untouchable and 50% faster',cd:12,pf:p=>{p.dodge+=0.12},act:()=>{ P.inv=4; P.speed*=1.5; after(4,()=>P.speed/=1.5); AU.tone(AU.f(0,2),{type:'triangle',dur:0.3,vol:0.1,verb:0.6}); }},
  grinch:{n:'clown ethan',p:'+50% pickup range, +15% xp',a:'honk',ad:'vacuums every gem to you and sucks nearby ethans into a vortex',cd:12,pf:p=>{p.magnet*=1.5;p.xpm*=1.15},act:()=>{ const m0=P.magnet; P.magnet=400; after(2,()=>P.magnet=m0); const [fx,fz]=camFwd(); const t=nearest(P.x,P.y,P.z,25)||{x:P.x+fx*6,y:P.y,z:P.z+fz*6}; const m=new THREE.Mesh(new THREE.SphereGeometry(0.8,12,10),new THREE.MeshBasicMaterial({color:0x000000})); m.position.set(t.x,t.y+1.5,t.z); scene.add(m); const rl=new THREE.PointLight(0x6fe39a,3,14); m.add(rl); vortices.push({m,x:t.x,z:t.z,life:2.2,max:2.2}); AU.tone(AU.f(0,0),{type:'sawtooth',dur:2,vol:0.12,filt:1200,verb:0.8}); }},
- suit:{n:'business ethan',p:'+30% damage to bosses',a:'objection',ad:'one giant piercing OBJECTION, 6x damage',cd:6,pf:p=>{p.bossMul*=1.3},act:()=>{ const [fx,fz]=camFwd(); const b0=P.bsize; P.bsize*=3; addBullet(P.x,P.y+1.3,P.z,fx*P.bspd,-camPitch*2+1.5,fz*P.bspd,P.dmg*6,{word:'OBJECTION',nomit:true,life:1.6}); P.bsize=b0; const b=bullets[bullets.length-1]; if(b)b.pierce=99; AU.shoot(0); AU.boom(0); P.faceA=Math.atan2(fz,fx); }},
+ suit:{n:'business ethan',p:'+30% damage to bosses',a:'objection',ad:'one giant piercing OBJECTION, 6x damage',cd:6,pf:p=>{p.bossMul*=1.3},act:()=>{ const [dx,dy,dz]=aimDir(P.x,P.y+1.3,P.z); const b0=P.bsize; P.bsize*=3; addBullet(P.x,P.y+1.3,P.z,dx*P.bspd,isArena()?dy*P.bspd:1.5,dz*P.bspd,P.dmg*6,{word:'OBJECTION',nomit:true,life:1.6}); P.bsize=b0; const b=bullets[bullets.length-1]; if(b)b.pierce=99; AU.shoot(0); AU.boom(0); P.faceA=Math.atan2(dz,dx); }},
  summit:{n:'climber ethan',p:'+20 max hp, +0.3 regen',a:'avalanche',ad:'7 meteors crash down around you',cd:12,pf:p=>{p.maxhp+=20;p.hp+=20;p.regen+=0.3},act:()=>{ for(let i=0;i<7;i++){ const a=i/7*TAU,r=R(3,9); dropMeteor(P.x+Math.cos(a)*r,P.y,P.z+Math.sin(a)*r,0.6+i*0.1); } AU.noise({dur:0.9,vol:0.15,type:'bandpass',f:300,fe:2500,q:2,verb:0.6}); }},
  headphones:{n:'headphones ethan',p:'+15% fire rate',a:'drop the beat',ad:'shockwave: 3x damage and huge knockback within 10',cd:8,pf:p=>{p.rate*=1.15},act:()=>{ explode(P.x,P.y,P.z,10,P.dmg*3,0xc77dff); for(const e of enemies){ if(e.dead)continue; const dx=e.x-P.x,dz=e.z-P.z,d=Math.hypot(dx,dz)||1; if(d<10){e.kx+=dx/d*(e.boss?3:22);e.kz+=dz/d*(e.boss?3:22);} } doShake(0.7); }},
  bow:{n:'cute ethan',p:'ethans move 10% slower',a:'pretty please',ad:'two ethans fight for you for 12s',cd:18,pf:p=>{p.timeDil*=0.9},act:()=>{ spawnAlly(P.x+1.5,P.z,2.3,12,'bow'); spawnAlly(P.x-1.5,P.z,2.3,12,'bow'); AU.heal(); burst(P.x,P.y+1,P.z,0xff8ac8,24,8,0.8); }},
@@ -893,10 +893,13 @@ function keeperAI(e,dt){ const dh=Math.hypot(e.x-e.home.x,e.z-e.home.z); e.leash
 function openChest(id,by){ const c=chests[id]; if(!c||c.open)return; c.open=true; c.lid.rotation.x=-1.2; c.lid.position.z=-0.4; c.sp.visible=false; burst(c.x,c.y+1,c.z,0xffd36b,24,8,0.8); AU.heal();
   if(by===NET.me){ const avail=ATR.filter(t=>!t.max||trCount(t.id)<t.max); const t=avail[RI(0,avail.length-1)]; t.f(P); P.traits.push(t.id); AU.pick(t.r); bigmsg(t.n,1300); log(`the chest had <b>${t.n}</b>.`); } }
 function hitmarker(){ if(!isArena())return; AU.noise({dur:0.045,vol:0.32,type:'bandpass',f:3200,fe:900,q:1.4,verb:0}); AU.tone(2600,{type:'square',dur:0.02,vol:0.08,slide:1200,verb:0}); const h=$('hitmk'); h.classList.remove('off'); h.classList.add('on'); clearTimeout(hitmkT); hitmkT=setTimeout(()=>{h.classList.remove('on');h.classList.add('off');},90); }
-function arenaFire(){ const fx=-Math.sin(camYaw),fz=-Math.cos(camYaw); const base=Math.atan2(fz,fx); const oy=P.y+1.3; P.faceA=base; const n=1+P.fan; const sp=P.fan?0.14:0;
-  const one=(a,ox,oz,mul)=>{ const h=P.bspd; addBullet(P.x+ox,oy,P.z+oz,Math.cos(a)*h,-camPitch*2+1.5,Math.sin(a)*h,P.dmg*mul,{life:1.1*P.range,nomit:true}); };
+const _aimV=new THREE.Vector3();
+function aimDir(ox,oy,oz){ // direction from the muzzle to the point the crosshair is on: 60 units down the camera ray
+  camera.getWorldDirection(_aimV); const ax=camera.position.x+_aimV.x*60-ox, ay=camera.position.y+_aimV.y*60-oy, az=camera.position.z+_aimV.z*60-oz; const l=Math.hypot(ax,ay,az)||1; return [ax/l,ay/l,az/l]; }
+function arenaFire(){ const oy=P.y+1.3; const [dx,dy,dz]=aimDir(P.x,oy,P.z); const base=Math.atan2(dz,dx); const horiz=Math.max(0.05,Math.hypot(dx,dz)); P.faceA=base; const n=1+P.fan; const sp=P.fan?0.14:0;
+  const one=(a,ox,oz,mul)=>{ const h=P.bspd*horiz; addBullet(P.x+ox,oy,P.z+oz,Math.cos(a)*h,P.bspd*dy,Math.sin(a)*h,P.dmg*mul,{life:1.1*P.range,nomit:true}); };
   for(let i=0;i<n;i++){ const a=base+(i-(n-1)/2)*sp; one(a,0,0,1); for(let t=1;t<=P.twin;t++){ const px=-Math.sin(base)*0.6*t,pz=Math.cos(base)*0.6*t; one(a,px,pz,1); one(a,-px,-pz,1); } }
-  if(mirror){ const h=P.bspd; addBullet(mirror.x,mirror.y,mirror.z,Math.cos(base)*h,1.5,Math.sin(base)*h,P.dmg*0.6,{mirror:true,nomit:true,life:1.1*P.range}); }
+  if(mirror){ const h=P.bspd*horiz; addBullet(mirror.x,mirror.y,mirror.z,Math.cos(base)*h,P.bspd*dy,Math.sin(base)*h,P.dmg*0.6,{mirror:true,nomit:true,life:1.1*P.range}); }
   AU.shoot(0); P.shotN++; }
 function pvpHit(from,dmg,kx,kz,frost){ if(!isArena()||P.down||P.elim||over)return; if(P.dodge&&Math.random()<P.dodge){ txt(P.x,P.y+2,P.z,'dodge','#6be3ff',1); return; } if(P.shield>0&&P.shieldT<=0){ P.shieldT=12/P.shield; burst(P.x,P.y+1,P.z,0x6be3ff,14,6,0.4); txt(P.x,P.y+2.4,P.z,'blocked','#6be3ff',1.2); AU.tone(900,{type:'triangle',dur:0.12,vol:0.1,slide:1400}); return; }
   P.hp-=dmg; P.vx+=kx; P.vz+=kz; if(frost)P.slowT=1.5; flashRed=0.5; doShake(0.4); AU.hurt(); burst(P.x,P.y+0.5,P.z,0xff5c7a,12,8,0.5); txt(P.x,P.y+1.5,P.z,'-'+Math.round(dmg),'#ff5c7a',1.3);
@@ -1015,7 +1018,7 @@ function update(dt){
   if(NET.role!=='client')T+=dt; if(logT>0)logT-=dt; const frozen=!!NET.role&&(choosing||paused); const canAct=!frozen&&!P.down;
   // camera input
   if(keys.KeyQ)camYaw+=2.4*dt; if(keys.KeyE&&!NET.revTarget)camYaw-=2.4*dt;
-  if(touch.look){camYaw-=touch.look.dx*0.006; camPitch=clamp(camPitch+touch.look.dy*0.004,0.12,PITCH_MAX); touch.look.dx=touch.look.dy=0;}
+  if(touch.look){camYaw-=touch.look.dx*0.006; camPitch=clamp(camPitch+touch.look.dy*0.004,isArena()?-0.55:0.12,PITCH_MAX); touch.look.dx=touch.look.dy=0;}
   // movement relative to camera
   let ix=0,iz=0; if(keys.KeyA||keys.ArrowLeft)ix-=1; if(keys.KeyD||keys.ArrowRight)ix+=1; if(keys.KeyW||keys.ArrowUp)iz-=1; if(keys.KeyS||keys.ArrowDown)iz+=1;
   if(touch.move){const dx=touch.move.x-touch.move.ox,dy=touch.move.y-touch.move.oy,d=Math.hypot(dx,dy); if(d>6){const m=Math.min(1,d/48);ix=dx/d*m;iz=dy/d*m;}}
@@ -1181,9 +1184,11 @@ function update(dt){
   scene.background.setHex(flashRed>0.25?0xe8a0b0:(MAP==='meadow'?0xd8ecff:SKY));
 }
 function updateCamera(dt){ shake*=Math.pow(0.001,dt);
-  const dist=10, tx=P.x, ty=P.y+1.6, tz=P.z; camTarget.set(tx,ty,tz);
+  const ots=isArena()&&running&&!over; const rx=Math.cos(camYaw), rz=-Math.sin(camYaw); let off=ots?1.6:0; if(off&&isNaN(floorTile(P.x+rx*off,P.z+rz*off)))off=0.4;
+  const dist=ots?6.5:10, tx=P.x+rx*off, ty=P.y+(ots?2.0:1.6), tz=P.z+rz*off; camTarget.set(tx,ty,tz);
   let dd=dist; for(let k=1;k<=24;k++){ const t=k/24*dist; const sx=Math.sin(camYaw)*Math.cos(camPitch), sz=Math.cos(camYaw)*Math.cos(camPitch); const cx=tx+sx*t, cz=tz+sz*t; const blockedHere=MAP!=='meadow'&&(isNaN(floorTile(cx,cz))||isNaN(floorTile(cx+sz*0.5,cz-sx*0.5))||isNaN(floorTile(cx-sz*0.5,cz+sx*0.5))); if(blockedHere){ dd=Math.max(1.4,t-0.7); break; } }
   camPos.set(tx+Math.sin(camYaw)*Math.cos(camPitch)*dd, ty+Math.sin(camPitch)*dd, tz+Math.cos(camYaw)*Math.cos(camPitch)*dd);
+  { const cf=floorTile(camPos.x,camPos.z); const fl=isNaN(cf)?P.y:cf; if(camPos.y<fl+0.5)camPos.y=fl+0.5; }
   camera.position.lerp(camPos,1-Math.pow(0.00005,dt)); camera.position.x+=R(-shake,shake); camera.position.y+=R(-shake,shake);
   camera.lookAt(camTarget); }
 // platforms gently bob
@@ -1230,7 +1235,7 @@ addEventListener('keydown',e=>{ if(e.key==='Tab'&&running&&isArena()){ e.prevent
 addEventListener('keyup',e=>{keys[e.code]=false; if(e.key==='Shift')$('cards').classList.remove('shift'); if(e.key==='Tab'){$('tabpanel').hidden=true;$('tabtip').hidden=true;lockPointer();}});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false; touch.move=touch.look=null;});
 // mouse look: just move the mouse. clicking the field locks the pointer so it never hits the screen edge.
-cv.addEventListener('mousemove',e=>{ if(!running||paused||choosing)return; camYaw-=e.movementX*0.0045; camPitch=clamp(camPitch+e.movementY*0.003,0.12,PITCH_MAX); });
+cv.addEventListener('mousemove',e=>{ if(!running||paused||choosing)return; camYaw-=e.movementX*0.0045; camPitch=clamp(camPitch+e.movementY*0.003,isArena()?-0.55:0.12,PITCH_MAX); });
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('mousedown',e=>{ if(e.button===2&&running){ e.preventDefault(); useActive(); } if(e.button===0&&isArena()&&running){ fireDown=true; fireTap=true; } });
 $('actb').addEventListener('pointerdown',e=>{e.preventDefault();useActive();});
