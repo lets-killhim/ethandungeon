@@ -145,7 +145,7 @@ button.alt:hover,button.alt:focus-visible{background:var(--box2)}
   </div>
   <div class="row" style="align-items:flex-end">
     <div class="box" id="log">…</div>
-    <div class="box" id="skill"><div class="k" style="font-size:12px">right click</div><b id="skilln">—</b><div class="bar" style="margin-top:4px"><i id="skillbar"></i></div></div>
+    <div class="box" id="skill"><div class="k" style="font-size:12px">Q</div><b id="skilln">—</b><div class="bar" style="margin-top:4px"><i id="skillbar"></i></div></div>
     <canvas id="mm" width="150" height="150" style="border:3px solid var(--edge);box-shadow:inset 0 0 0 2px var(--box2),4px 4px 0 rgba(0,0,0,.5);width:120px;height:120px;background:#07060c;image-rendering:pixelated"></canvas>
   </div>
 </div>
@@ -633,7 +633,7 @@ let P,enemies,bullets,gems,parts,texts,zaps,orbitals,vortices,meteors,allies,min
 let T=0,running=false,paused=false,over=false,choosing=false,pendingLevels=0,offerCards=[];
 let floor=1,bossRoom=-1,bossState='idle',exitPortal=null,gateTiles=[],gateMeshes=[]; const GATES=new Set(); let ebul=[];
 // ---- arena mode ----
-let MODE='dungeon', ARENA_LIVES=2, altars=[], chests=[], keeperRoom=-1, keeperRef=null, fireDown=false, fireTap=false, myAltar=0, arenaWinner=null, hitmkT=null;
+let ads=false, adsK=0, camDd=10, MODE='dungeon', ARENA_LIVES=2, altars=[], chests=[], keeperRoom=-1, keeperRef=null, fireDown=false, fireTap=false, myAltar=0, arenaWinner=null, hitmkT=null;
 const isArena=()=>MODE==='arena';
 let centerRoom=-1;
 let camYaw=0,camPitch=0.38,shake=0,spawnT=0,wave=1,waveT=0,bossNext=1e12,eid=0,dmgLog=[],best=0,mirror=null,bhT=0,mtT=0,flashRed=0,bossRef=null,logT=0;
@@ -652,7 +652,7 @@ function reset(){
   for(const e of (enemies||[]))scene.remove(e.g); for(const b of (bullets||[]))scene.remove(b.m); for(const g of (gems||[]))scene.remove(g.m); for(const p of (parts||[]))scene.remove(p.m); for(const t of (texts||[]))scene.remove(t.m); for(const z of (zaps||[]))scene.remove(z.l); for(const o of (orbitals||[]))scene.remove(o); for(const v of (vortices||[]))scene.remove(v.m); for(const m of (meteors||[]))scene.remove(m.m); if(mirror){scene.remove(mirror.m);mirror=null;}
   for(const a of (allies||[]))scene.remove(a.g); for(const m of (mines||[]))scene.remove(m.m); for(const q of (puddles||[]))scene.remove(q.m);
   enemies=[];bullets=[];gems=[];parts=[];texts=[];zaps=[];orbitals=[];vortices=[];meteors=[];allies=[];mines=[];puddles=[];
-  T=0;spawnT=1;wave=1;waveT=0;timers=[];clearBots();keeperRef=null;arenaWinner=null;fireDown=false;$('tabpanel').hidden=true;bossNext=MAP==='meadow'?150:1e12;floor=1;bossState='idle';openGates();if(exitPortal){scene.remove(exitPortal.m);scene.remove(exitPortal.l);exitPortal=null;} for(const b of (ebul||[]))scene.remove(b.m); ebul=[];P.down=false;eid=0;dmgLog=[];bhT=0;mtT=0;flashRed=0;bossRef=null;over=false;choosing=false;pendingLevels=0;camYaw=0;shake=0;
+  T=0;spawnT=1;wave=1;waveT=0;timers=[];clearBots();ads=false;adsK=0;camDd=10;keeperRef=null;arenaWinner=null;fireDown=false;$('tabpanel').hidden=true;bossNext=MAP==='meadow'?150:1e12;floor=1;bossState='idle';openGates();if(exitPortal){scene.remove(exitPortal.m);scene.remove(exitPortal.l);exitPortal=null;} for(const b of (ebul||[]))scene.remove(b.m); ebul=[];P.down=false;eid=0;dmgLog=[];bhT=0;mtT=0;flashRed=0;bossRef=null;over=false;choosing=false;pendingLevels=0;camYaw=0;shake=0;
   P.x=(startTile[0]+0.5)*TS; P.z=(startTile[1]+0.5)*TS; P.y=hAt(startTile[0],startTile[1]); player.position.set(P.x,P.y+0.55,P.z); flowT=0; buildFlow(); $('bossw').hidden=true; log(MAP==='meadow'?'nice day. <b>he\'s here too.</b>':'he\'s down here. <b>all of him.</b>');
 }
 
@@ -681,7 +681,7 @@ function myClass(){ return CLASSES[skin]||CLASSES.waterfall; }
 function applyClass(){ const C=myClass(); C.pf(P); P.cd=0; P.cdMax=C.cd; $('skilln').textContent=C.a; }
 function useActive(){ if(!running||over||choosing||paused||P.down||P.cd>0)return; const C=myClass(); P.cd=C.cd; C.act(); $('skill').classList.add('used'); setTimeout(()=>$('skill').classList.remove('used'),200); }
 function lockPointer(){ if(running&&!paused&&!choosing&&document.pointerLockElement!==cv){ try{ const r=cv.requestPointerLock(); if(r&&r.catch)r.catch(()=>{}); }catch(err){} } }
-function classInfo(){ const C=myClass(); $('classinfo').innerHTML=`<b>${C.n}</b><span class="k"> · passive: </span>${C.p}<span class="k"> · right click: </span><b>${C.a}</b> — ${C.ad} <span class="k">(${C.cd}s)</span>`; }
+function classInfo(){ const C=myClass(); $('classinfo').innerHTML=`<b>${C.n}</b><span class="k"> · passive: </span>${C.p}<span class="k"> · Q: </span><b>${C.a}</b> — ${C.ad} <span class="k">(${C.cd}s)</span>`; }
 
 // ---------- traits ----------
 const TR=[
@@ -1027,7 +1027,6 @@ const camTarget=new THREE.Vector3(), camPos=new THREE.Vector3();
 function update(dt){
   if(NET.role!=='client')T+=dt; if(logT>0)logT-=dt; const frozen=!!NET.role&&(choosing||paused); const canAct=!frozen&&!P.down;
   // camera input
-  if(keys.KeyQ)camYaw+=2.4*dt; if(keys.KeyE&&!NET.revTarget)camYaw-=2.4*dt;
   if(touch.look){camYaw-=touch.look.dx*0.006; camPitch=clamp(camPitch+touch.look.dy*0.004,isArena()?-0.55:0.12,PITCH_MAX); touch.look.dx=touch.look.dy=0;}
   // movement relative to camera
   let ix=0,iz=0; if(keys.KeyA||keys.ArrowLeft)ix-=1; if(keys.KeyD||keys.ArrowRight)ix+=1; if(keys.KeyW||keys.ArrowUp)iz-=1; if(keys.KeyS||keys.ArrowDown)iz+=1;
@@ -1194,12 +1193,17 @@ function update(dt){
   scene.background.setHex(flashRed>0.25?0xe8a0b0:(MAP==='meadow'?0xd8ecff:SKY));
 }
 function updateCamera(dt){ shake*=Math.pow(0.001,dt);
-  const ots=isArena()&&running&&!over; const rx=Math.cos(camYaw), rz=-Math.sin(camYaw); let off=ots?1.6:0; if(off&&isNaN(floorTile(P.x+rx*off,P.z+rz*off)))off=0.4;
-  const dist=ots?6.5:10, tx=P.x+rx*off, ty=P.y+(ots?2.0:1.6), tz=P.z+rz*off; camTarget.set(tx,ty,tz);
-  let dd=dist; for(let k=1;k<=24;k++){ const t=k/24*dist; const sx=Math.sin(camYaw)*Math.cos(camPitch), sz=Math.cos(camYaw)*Math.cos(camPitch); const cx=tx+sx*t, cz=tz+sz*t; const blockedHere=MAP!=='meadow'&&(isNaN(floorTile(cx,cz))||isNaN(floorTile(cx+sz*0.5,cz-sx*0.5))||isNaN(floorTile(cx-sz*0.5,cz+sx*0.5))); if(blockedHere){ dd=Math.max(1.4,t-0.7); break; } }
-  camPos.set(tx+Math.sin(camYaw)*Math.cos(camPitch)*dd, ty+Math.sin(camPitch)*dd, tz+Math.cos(camYaw)*Math.cos(camPitch)*dd);
+  const ots=isArena()&&running&&!over; adsK=lerp(adsK,ots&&ads?1:0,1-Math.pow(0.0005,dt)); // 0 = hip, 1 = aiming down sights
+  const rx=Math.cos(camYaw), rz=-Math.sin(camYaw); let off=ots?lerp(1.6,1.9,adsK):0; if(off&&isNaN(floorTile(P.x+rx*off,P.z+rz*off)))off=0.4;
+  const dist=ots?lerp(6.5,3.6,adsK):10, tx=P.x+rx*off, ty=P.y+(ots?lerp(2.0,1.8,adsK):1.6), tz=P.z+rz*off; camTarget.set(tx,ty,tz);
+  // pull the camera in only when the ray from the player to it crosses a wall; smoothed so it never snaps or drifts on its own
+  let want=dist; const sx=Math.sin(camYaw)*Math.cos(camPitch), sz=Math.cos(camYaw)*Math.cos(camPitch);
+  if(MAP!=='meadow'){ for(let k=1;k<=24;k++){ const t=k/24*dist; if(isNaN(floorTile(tx+sx*t,tz+sz*t))){ want=Math.max(1.2,t-0.6); break; } } }
+  camDd=want<camDd?want:lerp(camDd,want,1-Math.pow(0.02,dt));
+  camPos.set(tx+sx*camDd, ty+Math.sin(camPitch)*camDd, tz+sz*camDd);
   { const cf=floorTile(camPos.x,camPos.z); const fl=isNaN(cf)?P.y:cf; if(camPos.y<fl+0.5)camPos.y=fl+0.5; }
-  camera.position.lerp(camPos,1-Math.pow(0.00005,dt)); camera.position.x+=R(-shake,shake); camera.position.y+=R(-shake,shake);
+  camera.position.copy(camPos); camera.position.x+=R(-shake,shake); camera.position.y+=R(-shake,shake);
+  const fov=ots?lerp(76,58,adsK):76; if(Math.abs(camera.fov-fov)>0.05){ camera.fov=fov; camera.updateProjectionMatrix(); }
   camera.lookAt(camTarget); }
 // platforms gently bob
 function bobPlats(dt){}
@@ -1237,19 +1241,19 @@ $('pauseb').onclick=togglePause; $('resume').onclick=togglePause;
 $('mute').onclick=()=>{ AU.on=!AU.on; $('mute').textContent='sound: '+(AU.on?'on':'off'); if(AU.ready)AU.master.gain.setTargetAtTime(AU.on?0.7:0,AU.ctx.currentTime,0.05); };
 $('jumpb').addEventListener('pointerdown',e=>{e.preventDefault();jumpPressed=true;});
 addEventListener('keydown',e=>{ if(e.key==='Tab'&&running&&isArena()){ e.preventDefault(); if(!e.repeat){ updateTabPanel(); $('tabpanel').hidden=false; if(document.pointerLockElement===cv)document.exitPointerLock(); } return; } if(e.key==='Shift'&&choosing)$('cards').classList.add('shift'); if(e.repeat)return; if(document.activeElement===$('uname')||document.activeElement===$('mpcode'))return; keys[e.code]=true;
-  if(e.code==='KeyF'&&running)useActive(); if(e.code==='KeyX')spawnBot(); if(e.code==='KeyM')$('mute').click(); if(e.code==='KeyP'||e.code==='Escape')togglePause();
+  if((e.code==='KeyQ'||e.code==='KeyF')&&running)useActive(); if(e.code==='KeyX')spawnBot(); if(e.code==='KeyM')$('mute').click(); if(e.code==='KeyP'||e.code==='Escape')togglePause();
   if(e.code==='Space'&&running&&!choosing&&!paused)jumpPressed=true;
   if(choosing&&['Digit1','Digit2','Digit3'].includes(e.code))pickTrait(+e.code.slice(-1)-1);
   if(e.code==='Enter'&&!running&&!$('ov').hidden&&!choosing&&document.activeElement!==$('uname')){ if(!$('start').hidden||!$('dead').hidden)startRun(); }
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault(); });
 addEventListener('keyup',e=>{keys[e.code]=false; if(e.key==='Shift')$('cards').classList.remove('shift'); if(e.key==='Tab'){$('tabpanel').hidden=true;$('tabtip').hidden=true;lockPointer();}});
-addEventListener('blur',()=>{for(const k in keys)keys[k]=false; touch.move=touch.look=null;});
+addEventListener('blur',()=>{ads=false;fireDown=false;for(const k in keys)keys[k]=false; touch.move=touch.look=null;});
 // mouse look: just move the mouse. clicking the field locks the pointer so it never hits the screen edge.
-cv.addEventListener('mousemove',e=>{ if(!running||paused||choosing)return; camYaw-=e.movementX*0.0045; camPitch=clamp(camPitch+e.movementY*0.003,isArena()?-0.55:0.12,PITCH_MAX); });
+cv.addEventListener('mousemove',e=>{ if(!running||paused||choosing)return; const sens=1-0.5*adsK; camYaw-=e.movementX*0.0045*sens; camPitch=clamp(camPitch+e.movementY*0.003*sens,isArena()?-0.55:0.12,PITCH_MAX); });
 cv.addEventListener('contextmenu',e=>e.preventDefault());
-cv.addEventListener('mousedown',e=>{ if(e.button===2&&running){ e.preventDefault(); useActive(); } if(e.button===0&&isArena()&&running){ fireDown=true; fireTap=true; } });
+cv.addEventListener('mousedown',e=>{ if(e.button===2&&running){ e.preventDefault(); if(isArena())ads=true; else useActive(); } if(e.button===0&&isArena()&&running){ fireDown=true; fireTap=true; } });
 $('actb').addEventListener('pointerdown',e=>{e.preventDefault();useActive();});
-addEventListener('mouseup',e=>{ if(e.button===0)fireDown=false; });
+addEventListener('mouseup',e=>{ if(e.button===0)fireDown=false; if(e.button===2)ads=false; });
 $('fireb').addEventListener('pointerdown',e=>{e.preventDefault();fireDown=true;fireTap=true;}); $('fireb').addEventListener('pointerup',()=>{fireDown=false;}); $('fireb').addEventListener('pointercancel',()=>{fireDown=false;});
 cv.addEventListener('click',()=>{ if(running&&!paused&&!choosing&&document.pointerLockElement!==cv){ try{ const r=cv.requestPointerLock(); if(r&&r.catch)r.catch(()=>{}); }catch(err){} } });
 cv.addEventListener('pointerdown',e=>{ if(e.pointerType==='mouse')return; cv.setPointerCapture(e.pointerId);
