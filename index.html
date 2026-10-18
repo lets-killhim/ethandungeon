@@ -65,10 +65,13 @@ button.card:hover,button.card:focus-visible{background:color-mix(in srgb,var(--r
 .pix{image-rendering:pixelated;image-rendering:crisp-edges;display:block;flex:none}
 .hrow{display:flex;align-items:center;gap:8px;min-height:30px}.hrow .k{font-size:13px}
 .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.badge{background:var(--box2);border:2px solid var(--edge);padding:1px 7px;font-size:13px;box-shadow:2px 2px 0 #000}
-#xhair{position:fixed;left:50%;top:50%;width:27px;height:27px;margin:-13px 0 0 -13px;pointer-events:none;z-index:3;filter:drop-shadow(1px 1px 0 #000)}#xhair canvas{width:27px;height:27px}
+#xhair{position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;pointer-events:none;z-index:3}
+#xhair i{position:absolute;background:#fff;box-shadow:0 0 2px #000}
+#xhair i:nth-child(1){left:12px;top:0;width:2px;height:8px}#xhair i:nth-child(2){left:12px;bottom:0;width:2px;height:8px}#xhair i:nth-child(3){top:12px;left:0;height:2px;width:8px}#xhair i:nth-child(4){top:12px;right:0;height:2px;width:8px}
 #hitmk{position:fixed;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;z-index:4;opacity:0}
 #hitmk.on{opacity:1;transition:none}#hitmk.off{opacity:0;transition:opacity .12s}
-#hitmk canvas{width:36px;height:36px;margin:-1px}#hitmk{filter:drop-shadow(1px 1px 0 #000)}
+#hitmk i{position:absolute;width:3px;height:12px;background:#fff;box-shadow:0 0 2px #000}
+#hitmk i:nth-child(1){left:6px;top:2px;transform:rotate(-45deg)}#hitmk i:nth-child(2){right:6px;top:2px;transform:rotate(45deg)}#hitmk i:nth-child(3){left:6px;bottom:2px;transform:rotate(45deg)}#hitmk i:nth-child(4){right:6px;bottom:2px;transform:rotate(-45deg)}
 #killmk{position:fixed;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;pointer-events:none;z-index:4;opacity:0}#killmk.on{opacity:1;transition:none}#killmk.off{opacity:0;transition:opacity .18s}
 #killmk canvas{width:46px;height:46px}#killmk{filter:drop-shadow(1px 1px 0 #000)}
 #tabpanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);min-width:300px;max-width:min(560px,90vw);background:var(--box);color:var(--pfg);border:3px solid var(--edge);box-shadow:inset 0 0 0 2px var(--box2),4px 4px 0 #000;padding:12px 14px;z-index:5}
@@ -122,8 +125,8 @@ button.alt{background:var(--box);color:var(--pfg)}button.alt:hover,button.alt:fo
 
 <canvas id="c"></canvas>
 <div id="msgbig"></div>
-<div id="xhair" hidden><canvas id="xhc" class="pix" width="9" height="9"></canvas></div>
-<div id="hitmk"><canvas id="hmc" class="pix" width="9" height="9"></canvas></div>
+<div id="xhair" hidden><i></i><i></i><i></i><i></i></div>
+<div id="hitmk"><i></i><i></i><i></i><i></i></div>
 <div id="killmk"><canvas id="kmc" class="pix" width="9" height="9"></canvas></div>
 <div id="tabpanel" hidden><div class="th">your traits <span class="k">· hover one</span></div><div id="tablist"></div><div id="tabtip" hidden></div></div>
 <button id="fireb" type="button">fire</button>
