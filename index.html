@@ -299,15 +299,30 @@ const HM=new Float32Array(GW*GH).fill(NaN); const ROOMOF=new Int16Array(GW*GH).f
 const rooms=[]; const torches=[]; let startTile=null; const genTheme={};
 const tidx=(tx,tz)=>tz*GW+tx; const inB=(tx,tz)=>tx>=0&&tz>=0&&tx<GW&&tz<GH;
 const hAt=(tx,tz)=>inB(tx,tz)?HM[tidx(tx,tz)]:NaN;
+const inShape=(r,x,z)=>{ if(x<r.x||z<r.z||x>=r.x+r.w||z>=r.z+r.h)return false; const u=(x+0.5-r.x)/r.w*2-1, v=(z+0.5-r.z)/r.h*2-1; switch(r.shape){ case 'ellipse': return u*u+v*v<=1; case 'oct': return Math.abs(u)+Math.abs(v)<=1.5; case 'blob': { const a=Math.atan2(v,u); const n=1+0.18*Math.sin(a*3+r.seed%7)+0.12*Math.cos(a*5+r.seed%11)+0.08*Math.sin(a*2+r.seed%5); return (u*u+v*v)<=n*n*0.95; } case 'cross': { const t=0.5; return Math.abs(u)<=t||Math.abs(v)<=t; } case 'ell': return u<=0.2||v<=0.2; default: return true; } };
+function genArena(){ // one huge octagonal hall: altars around the rim, a raised cornucopia of chests in the middle, pillars for cover
+  const RAD=36; const r={x:GW/2-RAD,z:GH/2-RAD,w:RAD*2,h:RAD*2,lvl:0,cx:GW>>1,cz:GH>>1,big:true,boss:false,shape:'oct',biome:'crypt',seed:1,col:new THREE.Color().setHSL(0.6,0.2,0.26)}; rooms.push(r);
+  for(let z=r.z;z<r.z+r.h;z++)for(let x=r.x;x<r.x+r.w;x++){ if(!inShape(r,x,z))continue; const id=tidx(x,z); HM[id]=0; ROOMOF[id]=0; }
+  const cx=r.cx,cz=r.cz;
+  // cornucopia: stepped dais (+0.5, +1) and a ring of broken pillars at mid radius for cover
+  for(let z=r.z;z<r.z+r.h;z++)for(let x=r.x;x<r.x+r.w;x++){ const id=tidx(x,z); if(isNaN(HM[id]))continue; const d=Math.hypot(x-cx,z-cz); if(d<5.5)HM[id]=1; else if(d<7.5)HM[id]=0.5; }
+  for(let i=0;i<10;i++){ const a=i/10*TAU+0.3; const px=Math.round(cx+Math.cos(a)*RAD*0.5),pz=Math.round(cz+Math.sin(a)*RAD*0.5); for(const [dx,dz] of [[0,0],[1,0],[0,1],[1,1]])HM[tidx(px+dx,pz+dz)]=NaN; }
+  for(let i=0;i<6;i++){ const a=i/6*TAU; const px=Math.round(cx+Math.cos(a)*RAD*0.78),pz=Math.round(cz+Math.sin(a)*RAD*0.78); HM[tidx(px,pz)]=NaN; HM[tidx(px+1,pz)]=NaN; }
+  startTile=[cx,cz]; bossRoom=-1; gateTiles=[];
+  altars=[]; for(let i=0;i<8;i++){ const a=i/8*TAU+Math.PI/8; const tx=Math.round(cx+Math.cos(a)*RAD*0.84),tz=Math.round(cz+Math.sin(a)*RAD*0.84); altars.push({room:0,tx,tz}); }
+  keeperRoom=0;
+  chests=[]; for(let i=0;i<12;i++){ const a=i/12*TAU, d=i%2?3.2:4.6; const tx=Math.round(cx+Math.cos(a)*d),tz=Math.round(cz+Math.sin(a)*d); const c=tidx(tx,tz); chests.push({id:chests.length,tx,tz,x:(tx+0.5)*TS,z:(tz+0.5)*TS,y:HM[c],open:false}); }
+  for(let z=1;z<GH-1;z++)for(let x=1;x<GW-1;x++){ if(!isNaN(hAt(x,z)))continue; if(R()>0.08)continue; for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){ const h=hAt(x+dx,z+dz); if(!isNaN(h)){ torches.push({x:(x+0.5+dx*0.42)*TS,y:h+3.2,z:(z+0.5+dz*0.42)*TS,ph:R(TAU),col:0x9ad7ff}); break; } } }
+}
 function genDungeon(){
   const LV=[0,0,0,-3,-3,3,-6,6,-9];
   // room 0 is the boss chamber: one huge flat hall
   { const w=RI(30,36),h=RI(30,36); const x=RI(8,GW-w-8),z=RI(8,GH-h-8); rooms.push({x,z,w,h,lvl:0,cx:x+(w>>1),cz:z+(h>>1),big:true,boss:true,biome:'crypt',shape:R()<0.5?'oct':'ellipse',col:new THREE.Color().setHSL(0.98,0.45,0.2)}); }
   for(let tries=0;tries<500&&rooms.length<27;tries++){ const big=R()<0.3; const w=big?RI(16,24):RI(8,14),h=big?RI(16,24):RI(8,14); const x=RI(3,GW-w-3),z=RI(3,GH-h-3);
     let ok=true; for(const r of rooms){ if(x<r.x+r.w+4&&x+w+4>r.x&&z<r.z+r.h+4&&z+h+4>r.z){ok=false;break;} } if(!ok)continue;
-    const shp=['rect','rect','oct','ellipse','blob','cross','ell','blob'][RI(0,7)]; rooms.push({x,z,w,h,lvl:0,cx:x+(w>>1),cz:z+(h>>1),big,shape:(w<9||h<9)&&shp!=='rect'?'oct':shp,seed:RI(1,1e9),biome:R()<0.45?'garden':'crypt',col:new THREE.Color().setHSL(R(0.55,0.75),R(0.15,0.35),R(0.22,0.32))}); }
+    const shp=['rect','rect','oct','ellipse','blob','cross','ell','blob'][RI(0,7)]; rooms.push({x,z,w,h,lvl:0,cx:x+(w>>1),cz:z+(h>>1),big,shape:(w<9||h<9)&&shp!=='rect'?'oct':shp,seed:RI(1,1e9),biome:'crypt',col:new THREE.Color().setHSL(R(0.55,0.75),R(0.15,0.35),R(0.22,0.32))}); }
   // room shapes: rectangles, chamfered octagons, ellipses, lumpy blobs, crosses and L-shapes. the centre is always inside so corridors can reach it
-  const inShape=(r,x,z)=>{ if(x<r.x||z<r.z||x>=r.x+r.w||z>=r.z+r.h)return false; const u=(x+0.5-r.x)/r.w*2-1, v=(z+0.5-r.z)/r.h*2-1; switch(r.shape){ case 'ellipse': return u*u+v*v<=1; case 'oct': return Math.abs(u)+Math.abs(v)<=1.5; case 'blob': { const a=Math.atan2(v,u); const n=1+0.18*Math.sin(a*3+r.seed%7)+0.12*Math.cos(a*5+r.seed%11)+0.08*Math.sin(a*2+r.seed%5); return (u*u+v*v)<=n*n*0.95; } case 'cross': { const t=0.5; return Math.abs(u)<=t||Math.abs(v)<=t; } case 'ell': return u<=0.2||v<=0.2; default: return true; } };
+  // (room shape mask is the top-level inShape)
   // connect: nearest-neighbor spanning tree + extra loops
   const edges=[]; const inT=[0]; const out=rooms.map((_,i)=>i).slice(1); const treeAdj=rooms.map(()=>[]);
   while(out.length){ let bi=-1,bj=-1,bd=1e9; for(const i of inT)for(const j of out){const d=(rooms[i].cx-rooms[j].cx)**2+(rooms[i].cz-rooms[j].cz)**2; if(d<bd){bd=d;bi=i;bj=j;}} edges.push([bi,bj,true]); treeAdj[bi].push(bj); treeAdj[bj].push(bi); inT.push(bj); out.splice(out.indexOf(bj),1); }
@@ -436,7 +451,7 @@ function buildWorld(){
     for(let i=0;i<340;i++){ g.fillStyle=R()<0.5?"#1c0405":"#72120e"; g.fillRect(R()*w|0,R()*h|0,2,2); }
     for(let i=0;i<46;i++){ g.fillStyle=R()<0.7?"#d8c9a3":"#ffffff"; g.fillRect(R()*w|0,R()*h|0,1,1); } }
   const stoneMap=makeTex(texStone,128,128), brickMap=makeTex(texBrick,64,64), skyMap=makeTex(texSky,256,160);
-  const BIO={crypt:{floor:imgTex('moss'),wall:imgTex('bluebrick')},garden:{floor:imgTex('flowers'),wall:imgTex('purple')}};
+  const BIO={crypt:{floor:imgTex('moss'),wall:imgTex('bluebrick')}}; BIO.garden=BIO.crypt;
   const floorGeo=new THREE.BoxGeometry(TS,1,TS); const wallGeo=new THREE.BoxGeometry(TS,1,TS);
   let fc=0; const fcB={crypt:0,garden:0}; for(let z=0;z<GH;z++)for(let x=0;x<GW;x++){ if(!isNaN(HM[tidx(x,z)])){fc++;fcB[biomeAt(x,z)]++;} }
   const wallBiome=(x,z)=>{ for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){ if(inB(x+dx,z+dz)&&!isNaN(HM[tidx(x+dx,z+dz)])){ const b=biomeAt(x+dx,z+dz); if(b==='garden')return b; } } return 'crypt'; };
@@ -477,7 +492,7 @@ let mapSeed=1;
 function allRoomsReachable(){ const dist=new Int32Array(GW*GH).fill(-1); const q=[tidx(startTile[0],startTile[1])]; dist[q[0]]=0; for(let qi=0;qi<q.length;qi++){ const c=q[qi],cx=c%GW,cz=(c/GW)|0; for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){ const nx=cx+dx,nz=cz+dz; if(!inB(nx,nz))continue; const n=tidx(nx,nz); if(dist[n]>=0||isNaN(HM[n])||Math.abs(HM[n]-HM[c])>1.3)continue; dist[n]=dist[c]+1; q.push(n);} } return rooms.every(r=>dist[tidx(r.cx,r.cz)]>=0); }
 function buildMap(kind,seed){ MAP=kind; builtMap=kind; mapSeed=seed||Math.floor(Math.random()*1e9)+1; rand=mb32(mapSeed); while(worldGroup.children.length)worldGroup.remove(worldGroup.children[0]); HM.fill(NaN); ROOMOF.fill(-1); rooms.length=0; torches.length=0; cows.length=0; cows.clouds=[]; CH=null;
   if(kind==='meadow'){ genMeadow(); buildMeadow(); scene.background.setHex(0xd8ecff); scene.fog.color.setHex(0xd8ecff); scene.fog.near=90; scene.fog.far=220; hemi.color.setHex(0xe8f4ff); hemi.groundColor.setHex(0x4f8a3a); hemi.intensity=1.0; sun.color.setHex(0xfff2d0); sun.intensity=1.0; plight.intensity=0; PITCH_MAX=1.1; camPitch=Math.min(camPitch,PITCH_MAX); }
-  else { for(let t=0;t<8;t++){ genDungeon(); if(allRoomsReachable())break; HM.fill(NaN); ROOMOF.fill(-1); rooms.length=0; torches.length=0; } buildWorld(); if(isArena())buildArenaProps(); scene.background.setHex(SKY); scene.fog.color.setHex(SKY); scene.fog.near=28; scene.fog.far=70; hemi.color.setHex(0x5a3030); hemi.groundColor.setHex(0x120a08); hemi.intensity=0.7; sun.color.setHex(0xc9886a); sun.intensity=0.3; plight.intensity=1.1; PITCH_MAX=0.9; }
+  else { if(isArena())genArena(); else for(let t=0;t<8;t++){ genDungeon(); if(allRoomsReachable())break; HM.fill(NaN); ROOMOF.fill(-1); rooms.length=0; torches.length=0; } buildWorld(); if(isArena())buildArenaProps(); scene.background.setHex(SKY); scene.fog.color.setHex(SKY); scene.fog.near=isArena()?70:28; scene.fog.far=isArena()?170:70; hemi.color.setHex(0x4a3a5a); hemi.groundColor.setHex(0x0c0a10); hemi.intensity=0.75; sun.color.setHex(0xc9886a); sun.intensity=0.3; plight.intensity=1.1; PITCH_MAX=0.9; }
   paintMap(); rand=Math.random; }
 const mmView=$('mm'); const mmx=mmView.getContext('2d');
 function drawMinimap(){ const S=mmView.width, RAD=34; mmx.fillStyle='#07060c'; mmx.fillRect(0,0,S,S); const px=P.x/TS,pz=P.z/TS; const sc=S/(RAD*2); mmx.imageSmoothingEnabled=false;
