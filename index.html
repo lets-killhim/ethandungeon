@@ -5,9 +5,9 @@
 <style>
 /* layout: fullscreen WebGL canvas; chunky HUD panels pinned to corners; modal menus float over a dimmed scene */
 :root{
-  --bg:#1b1424; --box:#2b1e33; --box2:#3b2a44; --edge:#1c1226; --fg:#f4eddc; --dim:#b8a9c9; --pfg:#f4eddc; --pdim:#b8a9c9;
-  --rd0:#c7c0d4; --rd1:#8ad44f; --rd2:#67a9ff; --rd3:#c77dff; --rd4:#ffb347;
-  --hp:#e85d9a; --hp2:#ff5c7a; --xp:#f2c94c; --jump:#5fd3c8; --pink:#e85d9a; --hl:#8fd8ff; --pink2:#ff9ac6; --mint:#8ad44f; --gold:#f2c94c;
+  --bg:#1b1424; --box:#f4f2ee; --box2:#dad6ce; --edge:#1c1226; --fg:#f4eddc; --dim:#b8a9c9; --pfg:#1a1420; --pdim:#6a6478;
+  --rd0:#6a6478; --rd1:#1f9a55; --rd2:#2f6fd8; --rd3:#8a3fd6; --rd4:#d07a10;
+  --hp:#e85d9a; --hp2:#ff5c7a; --xp:#f2c94c; --jump:#5fd3c8; --pink:#e85d9a; --hl:#8ad44f; --pink2:#ff9ac6; --mint:#8ad44f; --gold:#f2c94c;
   --r0:#c7c0d4; --r1:#6fe39a; --r2:#67a9ff; --r3:#c77dff; --r4:#ffb347;
   --font:'Pixelify Sans',ui-monospace,SFMono-Regular,Menlo,monospace;
   color-scheme:dark;
@@ -33,7 +33,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-actio
   padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow:auto}
 .panel{text-align:center;max-width:760px;width:100%;min-width:0}
 h1{font-size:clamp(44px,9vw,84px);margin:0;font-weight:700;letter-spacing:-.02em;line-height:1;text-shadow:4px 4px 0 #000}
-h1 span{color:var(--xp)}
+h1 span{color:var(--mint)}
 h2{font-size:clamp(24px,5vw,38px);margin:0 0 6px;font-weight:700;text-shadow:3px 3px 0 #000}
 .sub{color:var(--dim);font-size:16px;margin:8px 0 18px;line-height:1.5;text-wrap:balance}.sub b{color:var(--fg)}
 button{font:inherit;font-size:19px;font-weight:700;color:var(--edge);background:var(--xp);border:3px solid var(--edge);padding:10px 24px;cursor:pointer;box-shadow:4px 4px 0 #000}
@@ -64,7 +64,7 @@ button.card:hover,button.card:focus-visible{background:color-mix(in srgb,var(--r
 .ctl button:hover{color:var(--edge);background:var(--hl)}
 .pix{image-rendering:pixelated;image-rendering:crisp-edges;display:block;flex:none}
 .hrow{display:flex;align-items:center;gap:8px;min-height:30px}.hrow .k{font-size:13px}
-.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.badge{background:var(--bg);border:2px solid var(--edge);padding:1px 7px;font-size:13px;box-shadow:2px 2px 0 #000}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.badge{background:var(--box2);border:2px solid var(--edge);padding:1px 7px;font-size:13px;box-shadow:2px 2px 0 #000}
 #xhair{position:fixed;left:50%;top:50%;width:27px;height:27px;margin:-13px 0 0 -13px;pointer-events:none;z-index:3}
 #xhair b{position:absolute;left:12px;top:12px;width:3px;height:3px;background:#fff;box-shadow:0 0 2px #000}
 #xhair i{position:absolute;background:#fff;box-shadow:0 0 2px #000}
@@ -79,7 +79,7 @@ button.card:hover,button.card:focus-visible{background:color-mix(in srgb,var(--r
 #tabpanel .th{font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin-bottom:8px}#tabpanel .th .k{color:var(--pdim);font-weight:400;letter-spacing:0;text-transform:none}
 #tablist{display:flex;flex-wrap:wrap;gap:6px}#tablist .chip{font-size:14px;padding:3px 8px;cursor:default}
 #tabtip{margin-top:10px;padding-top:8px;border-top:1px dashed var(--box2);font-size:14px;line-height:1.4;color:var(--pfg)}#tabtip b{display:block;margin-bottom:2px}
-#modeword{cursor:pointer}#modeword:hover{text-decoration:underline;text-decoration-thickness:4px}
+#go{background:var(--mint)}#modeword{cursor:pointer}#modeword:hover{text-decoration:underline;text-decoration-thickness:4px}
 .lv{padding:4px 10px!important}.lv.sel{color:var(--edge)!important;border-color:var(--hl)!important;background:var(--hl)!important}
 #msgbig{position:fixed;left:50%;top:36%;transform:translateX(-50%);font-size:clamp(28px,6vw,54px);font-weight:700;text-shadow:4px 4px 0 #000;pointer-events:none;opacity:0;transition:opacity .4s;white-space:nowrap}
 #fireb{position:fixed;left:max(20px,env(safe-area-inset-left,0px));bottom:max(24px,env(safe-area-inset-bottom,0px));width:76px;height:76px;border-radius:50%;background:var(--hp2);color:var(--bg);border:3px solid var(--edge);box-shadow:4px 4px 0 #000;font-size:16px;display:none;z-index:2;padding:0}
@@ -686,7 +686,7 @@ function reset(){
 
 // ---------- pixel hud (hud "A": pellets, star xp, orb cooldown, heart lives) ----------
 let hudPulse=0;
-const PIX={k:'#1c1226',p:'#e85d9a',P:'#ff9ac6',e:'#4a3657',w:'#fff0f6',g:'#8ad44f',G:'#c6ff8a',y:'#f2c94c',Y:'#fff0a8',t:'#5fd3c8',b:'#2b1e33'};
+const PIX={k:'#1c1226',p:'#e85d9a',P:'#ff9ac6',e:'#b9b3bf',w:'#ffffff',g:'#8ad44f',G:'#c6ff8a',y:'#f2c94c',Y:'#fff0a8',t:'#5fd3c8',b:'#dad6ce'};
 const ART={heart:['.kk...kk.','kPpk.kPpk','kpppkpppk','kpppppppk','.kpppppk.','..kpppk..','...kpk...','....k....'],heartE:['.kk...kk.','keek.keek','keeekeeek','keeeeeeek','.keeeeek.','..keeek..','...kek...','....k....'],star:['..y..','.yYy.','yYYYy','.yYy.','..y..']};
 function pixArt(g,name,x0,y0){ const a=ART[name]; for(let y=0;y<a.length;y++)for(let x=0;x<a[y].length;x++){ const c=PIX[a[y][x]]; if(c){g.fillStyle=c;g.fillRect(x0+x,y0+y,1,1);} } }
 function pixBox(g,x,y,w,h){ g.fillStyle=PIX.k; g.fillRect(x+1,y,w-2,h); g.fillRect(x,y+1,w,h-2); g.fillStyle=PIX.b; g.fillRect(x+2,y+2,w-4,h-4); }
