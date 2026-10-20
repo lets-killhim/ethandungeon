@@ -698,7 +698,7 @@ let P,enemies,bullets,gems,parts,texts,zaps,orbitals,vortices,meteors,allies,min
 let T=0,running=false,paused=false,over=false,choosing=false,pendingLevels=0,offerCards=[];
 let floor=1,bossRoom=-1,bossState='idle',exitPortal=null,gateTiles=[],gateMeshes=[]; const GATES=new Set(); let ebul=[];
 // ---- arena mode ----
-let ads=false, adsK=0, camDd=10, MODE='dungeon', ARENA_LIVES=2, altars=[], chests=[], keeperRoom=-1, keeperRef=null, fireDown=false, fireTap=false, myAltar=0, arenaWinner=null, hitmkT=null;
+let ads=false, adsK=0, camDd=10, MODE='arena', ARENA_LIVES=2, altars=[], chests=[], keeperRoom=-1, keeperRef=null, fireDown=false, fireTap=false, myAltar=0, arenaWinner=null, hitmkT=null;
 const isArena=()=>MODE==='arena';
 let centerRoom=-1;
 let camYaw=0,camPitch=0.38,shake=0,spawnT=0,wave=1,waveT=0,bossNext=1e12,eid=0,dmgLog=[],best=0,mirror=null,bhT=0,mtT=0,flashRed=0,bossRef=null,logT=0;
@@ -765,7 +765,7 @@ const CLASSES={
  bikini:{n:'water ethan',p:'+1 xp gem per kill, shoots waves',a:'whistle',ad:'freezes every ethan within 25 for 2.5s',cd:12,pf:p=>{p.greedy+=1;p.words=['~wave','~wave','~splash']},act:()=>{ for(const e of enemies){ if(!e.dead&&!e.boss&&Math.hypot(e.x-P.x,e.z-P.z)<25)e.freeze=Math.max(e.freeze||0,2.5); } AU.tone(2200,{type:'square',dur:0.35,vol:0.12,slide:2600,verb:0.5}); ring(P.x,P.y,P.z,25,0x8fb8ff,0.6); }},
  shades:{n:'rapper ethan',p:'+50% attack speed, full auto: hold to spit bars',a:'flow',ad:'4s untouchable and 50% faster',cd:12,pf:p=>{p.rate*=1.5;p.words=['YUH','IM ETHAN','AYE','BAD BITCHES','FAYGO','BLUNTS','TURN UP','LEANN','PATEK','IM SPITTIN','DROP THAT BEAT','YUHH','RAPPING','SLIM SHADY','BANDS','NO CAP','WACK','DOPE','GUAP','FETTI','BREAD','FLEXIN','FLOSSIN','DRACO','NAE NAE']},act:()=>{ P.inv=4; P.speed*=1.5; after(4,()=>P.speed/=1.5); AU.tone(AU.f(0,2),{type:'triangle',dur:0.3,vol:0.1,verb:0.6}); }},
  grinch:{n:'the trickster',p:'below 30% hp: vanish for a moment and leave a 5s clone',a:'switcheroo',ad:'short blink, brief invisibility, and a 3s clone where you were',cd:9,pf:p=>{p.trick=1},act:()=>{ const [fx,fz]=camFwd(); const ox=P.x,oz=P.z,oy=P.y; let bx=P.x,bz=P.z,by=P.y; for(let i=1;i<=12;i++){ const nx=P.x+fx*i*0.5,nz=P.z+fz*i*0.5; const h=floorTile(nx,nz); if(isNaN(h)||h>by+1.2)break; bx=nx;bz=nz;by=h; } spawnClone(ox,oy,oz,3,P.hp); P.x=bx;P.z=bz;P.y=by;P.vx=P.vz=0; P.invisT=0.7; burst(ox,oy+1,oz,0xc77dff,20,8,0.6); AU.tone(AU.f(7,2),{type:'sine',dur:0.2,vol:0.1,slide:600,verb:0.5}); }},
- suit:{n:'business ethan',p:'+25% xp, trait bonuses 15% stronger, grows a little with every gem (no limit)',a:'objection',ad:'one giant piercing OBJECTION, 6x damage',cd:6,pf:p=>{p.xpm*=1.25;p.traitMul=1.15;p.grow=0.0025;p.words=['💎']},act:()=>{ const [dx,dy,dz]=aimDir(P.x,P.y+1.3,P.z); const b0=P.bsize; P.bsize*=3; addBullet(P.x,P.y+1.3,P.z,dx*P.bspd,isArena()?dy*P.bspd:1.5,dz*P.bspd,P.dmg*6,{word:'OBJECTION',nomit:true,life:1.6}); P.bsize=b0; const b=bullets[bullets.length-1]; if(b)b.pierce=99; AU.shoot(0); AU.boom(0); P.faceA=Math.atan2(dz,dx); }},
+ suit:{n:'business ethan',p:'+25% xp, trait bonuses 15% stronger, grows a little with every gem',a:'',ad:'',cd:0,pf:p=>{p.xpm*=1.25;p.traitMul=1.15;p.grow=0.0025;p.words=['💎']},act:()=>{}},
  summit:{n:'climber ethan',p:'+20 max hp, +0.3 regen',a:'avalanche',ad:'7 meteors crash down around you',cd:12,pf:p=>{p.maxhp+=20;p.hp+=20;p.regen+=0.3},act:()=>{ for(let i=0;i<7;i++){ const a=i/7*TAU,r=R(3,9); dropMeteor(P.x+Math.cos(a)*r,P.y,P.z+Math.sin(a)*r,0.6+i*0.1); } AU.noise({dur:0.9,vol:0.15,type:'bandpass',f:300,fe:2500,q:2,verb:0.6}); }},
  headphones:{n:'DJ ethan',p:'+15% fire rate, shoots music',a:'drop the beat',ad:'shockwave: 3x damage and huge knockback within 10',cd:8,pf:p=>{p.rate*=1.15;p.words=['🎵','🎶']},act:()=>{ explode(P.x,P.y,P.z,10,P.dmg*3,0xc77dff); for(const e of enemies){ if(e.dead)continue; const dx=e.x-P.x,dz=e.z-P.z,d=Math.hypot(dx,dz)||1; if(d<10){e.kx+=dx/d*(e.boss?3:22);e.kz+=dz/d*(e.boss?3:22);} } doShake(0.7); }},
  bow:{n:'cutie pie',p:'takes 20% less damage, shoots hearts',a:'charm',ad:'stuns and hurts everything near you, heals 15 + a quarter of your missing hp',cd:12,pf:p=>{p.dr+=0.2;p.words=['💗','💕','❤️']},act:()=>{ explode(P.x,P.y,P.z,7,P.dmg*1.5,0xff8ac8); for(const e of enemies){ if(!e.dead&&!e.boss&&Math.hypot(e.x-P.x,e.z-P.z)<8)e.freeze=Math.max(e.freeze||0,1.5); } const heal=15+(P.maxhp-P.hp)*0.25; P.hp=Math.min(P.maxhp,P.hp+heal); txt(P.x,P.y+2.4,P.z,'+'+Math.round(heal),'#ff8ac8',1.3); AU.heal(); ring(P.x,P.y,P.z,8,0xff8ac8,0.5); spawnFx('charm',P.x,P.y+1.2,P.z,{size:5,fps:16}); }},
@@ -775,10 +775,10 @@ const CLASSES={
 };
 function dropMeteor(x,gy,z,t){ const fh=floorTile(x,z); const y=isNaN(fh)?gy:fh; const m=new THREE.Mesh(new THREE.SphereGeometry(0.6,10,8),new THREE.MeshBasicMaterial({color:0xff8a3d})); m.position.set(x,y+30,z); m.userData.gy=y; scene.add(m); const mk=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({color:0xff8a3d,transparent:true,opacity:0.6,side:THREE.DoubleSide})); mk.rotation.x=-Math.PI/2; mk.position.set(x,y+0.06,z); mk.scale.setScalar(4); scene.add(mk); meteors.push({m,mk,t}); }
 function myClass(){ return CLASSES[skin]||CLASSES.gym; }
-function applyClass(){ const C=myClass(); C.pf(P); P.cd=0; P.cdMax=C.cd; $('skilln').textContent=C.a; }
-function useActive(){ if(!running||over||choosing||paused||P.down||P.cd>0)return; const C=myClass(); P.cd=C.cd; C.act(); hudPulse=0.25; }
+function applyClass(){ const C=myClass(); C.pf(P); P.cd=0; P.cdMax=C.cd; $('skilln').textContent=C.a||'—'; }
+function useActive(){ if(!running||over||choosing||paused||P.down||P.cd>0||!myClass().a)return; const C=myClass(); P.cd=C.cd; C.act(); hudPulse=0.25; }
 function lockPointer(){ if(running&&!paused&&!choosing&&document.pointerLockElement!==cv){ try{ const r=cv.requestPointerLock(); if(r&&r.catch)r.catch(()=>{}); }catch(err){} } }
-function classInfo(){ const C=myClass(); $('classinfo').innerHTML=`<b>${C.n}</b><span class="k"> · passive: </span>${C.p}<span class="k"> · Q: </span><b>${C.a}</b> — ${C.ad} <span class="k">(${C.cd}s)</span>`; }
+function classInfo(){ const C=myClass(); $('classinfo').innerHTML=`<b>${C.n}</b><span class="k"> · passive: </span>${C.p}`+(C.a?`<span class="k"> · Q: </span><b>${C.a}</b> — ${C.ad} <span class="k">(${C.cd}s)</span>`:`<span class="k"> · no ability</span>`); }
 
 // ---------- traits ----------
 const TR=[
@@ -1319,7 +1319,7 @@ function update(dt){
   if(flashRed>0)flashRed-=dt;
   drawHud();
   $('hpt').textContent=Math.ceil(Math.max(0,P.hp)); $('hpm').textContent=P.maxhp; $('lvt').textContent=P.level;
-  $('tm').textContent=fmt(T); $('skillt').textContent=(P.cd>0?P.cd.toFixed(1)+'s':'ready')+(P.blueT>0?' · blue '+Math.ceil(P.blueT)+'s':'')+(P.redT>0?' · red '+Math.ceil(P.redT)+'s':''); $('kt').textContent=P.kills; $('wv').textContent=wave; $('fl').textContent=isArena()?('♥'+P.lives):MAP==='dungeon'?floor:'—';
+  $('tm').textContent=fmt(T); $('skillt').textContent=(!myClass().a?'':P.cd>0?P.cd.toFixed(1)+'s':'ready')+(P.blueT>0?' · blue '+Math.ceil(P.blueT)+'s':'')+(P.redT>0?' · red '+Math.ceil(P.redT)+'s':''); $('kt').textContent=P.kills; $('wv').textContent=wave; $('fl').textContent=isArena()?('♥'+P.lives):MAP==='dungeon'?floor:'—';
   while(dmgLog.length&&dmgLog[0][0]<T-3)dmgLog.shift(); let dps=0;for(const d of dmgLog)dps+=d[1]; $('dt').textContent=Math.round(dps/3);
   if(bossRef&&!bossRef.dead)$('bossb').style.width=clamp(bossRef.hp/bossRef.maxhp*100,0,100)+'%';
   scene.background.setHex(flashRed>0.25?0xe8a0b0:(isArena()?RIFT.sky:MAP==='meadow'?0xd8ecff:SKY));
@@ -1400,7 +1400,7 @@ cv.addEventListener('pointerup',pend); cv.addEventListener('pointercancel',pend)
 $('paused').addEventListener('click',e=>{ if(e.target.tagName!=='BUTTON')togglePause(); });
 
 // ---------- load ----------
-function boot(){ drawMarkers(); for(const k in FXDEF)fxTex(FXDEF[k][0]); for(const k in PROJ)fxTex(PROJ[k][0]); buildMap('dungeon'); reset(); show('start'); renderBoard(); $('faces').innerHTML=PLAYABLE.map(s=>`<button type="button" data-s="${s}"${s===skin?' class="sel"':''}><img src="spr/${s}.png" alt="${s}" title="${(CLASSES[s]||{}).n||s}"></button>`).join(''); classInfo();
+function boot(){ drawMarkers(); setModeUI(); for(const k in FXDEF)fxTex(FXDEF[k][0]); for(const k in PROJ)fxTex(PROJ[k][0]); buildMap('dungeon'); reset(); show('start'); renderBoard(); $('faces').innerHTML=PLAYABLE.map(s=>`<button type="button" data-s="${s}"${s===skin?' class="sel"':''}><img src="spr/${s}.png" alt="${s}" title="${(CLASSES[s]||{}).n||s}"></button>`).join(''); classInfo();
   const L=new THREE.TextureLoader(); SPRITES.forEach(s=>L.load(`spr/${s}.png`,t=>{ t.encoding=THREE.sRGBEncoding; t.minFilter=THREE.LinearMipmapLinearFilter; TEX[s]=t; texLoaded++; $('loadmsg').textContent=texLoaded<SPRITES.length?`loading him… ${texLoaded}/${SPRITES.length}`:'';
     if(texLoaded===SPRITES.length){ // title screen crowd
       for(let i=0;i<14;i++){ let x,z,tries=0; do{ x=(startTile[0]+RI(-7,7)+0.5)*TS; z=(startTile[1]+RI(-7,7)+0.5)*TS; }while(isNaN(floorTile(x,z))&&tries++<20); if(isNaN(floorTile(x,z)))continue; const e=spawnEnemy(Object.keys(ETYPES)[i%12],x,z); e.face=R()<0.5?-1:1; e.sp.scale.x*=e.face; } } }));
