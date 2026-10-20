@@ -1092,9 +1092,31 @@ function spawnBot(){ if(!isArena()||!running||over)return; botN++; const id='bot
 function updateBots(dt){ for(const [id,pl] of NET.players){ if(!pl.bot)continue; pl.lastSeen=performance.now(); if(pl.elim)continue;
   if(pl.burnT>0&&!pl.down){ pl.burnT-=dt; pl.burnTk=(pl.burnTk||0)-dt; if(pl.burnTk<=0){ pl.burnTk=0.5; botHit(pl,3); if(Math.random()<0.7)spawnFx('burn',pl.x+R(-0.4,0.4),pl.y+R(0.6,2),pl.z,{size:1.5,fps:22,add:true}); } }
   if(pl.down){ pl.rT-=dt; if(pl.rT<=0){ pl.down=false; pl.hp=pl.maxhp; const a=isArena()?riftSpawnTile(false):null; if(a){pl.tx=pl.x=a.x;pl.tz=pl.z=a.z;pl.ty=pl.y=a.y;} } continue; }
-  botThink(pl,dt);
+  botThink(pl,dt); botChest(pl,dt); botAbility(pl,dt);
   pl.wT-=dt; if(pl.wT<=0){ pl.wT=R(0.6,2.2); pl.wa=pl.tgt&&R()<0.6?Math.atan2(pl.tgt.z-pl.z,pl.tgt.x-pl.x)+R(-0.9,0.9):R(TAU); pl.moving=R()<0.75; }
-  if(pl.moving){ const sp=5; const nx=pl.tx+Math.cos(pl.wa)*sp*dt,nz=pl.tz+Math.sin(pl.wa)*sp*dt; const h=floorTile(nx,nz,pl.ty+0.3); if(isNaN(h)||Math.abs(h-pl.ty)>1.2){ pl.wa+=Math.PI*R(0.5,1.5); } else { pl.tx=nx; pl.tz=nz; pl.ty=h; pl.face=Math.cos(pl.wa)<0?-1:1; } } } }
+  let ang=pl.wa, go=pl.moving, sp=5;
+  if(pl.cchest&&!pl.cchest.open){ const c=pl.cchest; const d=Math.hypot(c.x-pl.x,c.z-pl.z); if(d<1.6){ go=false; } else { const fd=pl.cflow?flowDir(pl.x,pl.z,pl.cflow):null; ang=fd?Math.atan2(fd[1],fd[0]):Math.atan2(c.z-pl.z,c.x-pl.x); go=true; sp=7; } }
+  if(go){ const nx=pl.tx+Math.cos(ang)*sp*dt,nz=pl.tz+Math.sin(ang)*sp*dt; const h=floorTile(nx,nz,pl.ty+0.3); if(isNaN(h)||Math.abs(h-pl.ty)>1.2){ pl.wa+=Math.PI*R(0.5,1.5); pl.stuck=(pl.stuck||0)+dt; if(pl.stuck>2){ pl.stuck=0; pl.cchest=null; } } else { pl.tx=nx; pl.tz=nz; pl.ty=h; pl.face=Math.cos(ang)<0?-1:1; pl.stuck=0; } } } }
+function botChest(pl,dt){ // wander -> lock onto the nearest unopened chest -> walk the flow field to it -> hold 1.5s -> random trait -> repeat
+  if(pl.cchest&&pl.cchest.open)pl.cchest=null;
+  pl.cT=(pl.cT||0)-dt; if(!pl.cchest&&pl.cT<=0){ pl.cT=2; let best=null,bd=1e9; for(const c of chests){ if(c.open)continue; const d=Math.hypot(c.x-pl.x,c.z-pl.z); if(d<bd){bd=d;best=c;} } if(best){ pl.cchest=best; if(!pl.cflow)pl.cflow=new Int16Array(GW*GH); buildFlow(best.x,best.z,pl.cflow,false); pl.openT=0; } }
+  const c=pl.cchest; if(!c)return; if(Math.hypot(c.x-pl.x,c.z-pl.z)<2.3&&Math.abs(c.y-pl.y)<2.5){ pl.openT=(pl.openT||0)+dt; if(pl.openT>=1.5){ pl.openT=0; openChest(c.id,pl.id); if(NET.role==='host')netBroadcast({t:'chestgone',id:c.id,by:pl.id}); botRandomTrait(pl); pl.cchest=null; } } else pl.openT=0; }
+function botRandomTrait(pl){ const st=pl.st; if(!st)return; const avail=ATR.filter(t=>!t.max||pl.traits.filter(x=>x===t.id).length<t.max); if(!avail.length)return; const t=avail[RI(0,avail.length-1)]; t.f(st); pl.traits.push(t.id); if(st.maxhp>pl.maxhp){ pl.hp+=st.maxhp-pl.maxhp; pl.maxhp=st.maxhp; } burst(pl.x,pl.y+1,pl.z,parseInt(RCOL[t.r].slice(1),16),20,8,0.7); txt(pl.x,pl.y+PH+0.8,pl.z,t.n,RCOL[t.r],1); }
+function botAbility(pl,dt){ // every so often a cpu pops a rough stand-in for its class ability
+  const st=pl.st; if(!st||pl.down)return; pl.abT=(pl.abT==null?R(6,14):pl.abT)-dt; if(pl.abT>0)return; pl.abT=R(9,18); const C=CLASSES[pl.skin]; if(!C||!C.a)return; const col=0xc77dff; burst(pl.x,pl.y+1,pl.z,col,18,8,0.6); txt(pl.x,pl.y+PH+0.8,pl.z,C.a,'#c77dff',1);
+  const buff=(f,undo,t)=>{ f(); after(t,undo); };
+  switch(pl.skin){
+    case 'gym': buff(()=>{st.dmg*=1.5;},()=>{st.dmg/=1.5;},5); break;
+    case 'moon': pl.hp=Math.min(pl.maxhp,pl.hp+pl.maxhp*0.3); buff(()=>{st.rate*=1.6;},()=>{st.rate/=1.6;},5); break;
+    case 'shades': buff(()=>{st.rate*=1.5;},()=>{st.rate/=1.5;},4); break;
+    case 'kitchen2': buff(()=>{st.pierce+=3;st.crit=1;},()=>{st.pierce-=3;st.crit=0.05;},4); break;
+    case 'bow': pl.hp=Math.min(pl.maxhp,pl.hp+15+(pl.maxhp-pl.hp)*0.25); explode(pl.x,pl.y,pl.z,7,0,0xff8ac8); break;
+    case 'headphones': explode(pl.x,pl.y,pl.z,10,0,0xc77dff); if(!P.down&&Math.hypot(P.x-pl.x,P.z-pl.z)<10){ const dx=P.x-pl.x,dz=P.z-pl.z,d=Math.hypot(dx,dz)||1; P.vx+=dx/d*22; P.vz+=dz/d*22; pvpHit(pl.id,st.dmg*1.5,0,0,0,0); } break;
+    case 'summit': for(let i=0;i<5;i++){ const a=i/5*TAU,r=R(3,8); dropMeteor(pl.x+Math.cos(a)*r,pl.y,pl.z+Math.sin(a)*r,0.6+i*0.1); } break;
+    case 'night': case 'grinch': case 'beach': { const a=pl.tgt?Math.atan2(pl.tgt.z-pl.z,pl.tgt.x-pl.x):pl.wa; let bx=pl.x,bz=pl.z,by=pl.y; for(let i=1;i<=18;i++){ const nx=pl.x+Math.cos(a)*i*0.5,nz=pl.z+Math.sin(a)*i*0.5; const h=floorTile(nx,nz,by+0.3); if(isNaN(h)||h>by+1.2)break; bx=nx;bz=nz;by=h; } pl.tx=pl.x=bx; pl.tz=pl.z=bz; pl.ty=pl.y=by; burst(pl.x,pl.y+1,pl.z,0x6be3ff,16,8,0.5); break; }
+    case 'chain': for(let i=0;i<16;i++){ const a=i/16*TAU; const word=st.words[RI(0,st.words.length-1)]; const vx=Math.cos(a)*st.bspd*0.8,vz=Math.sin(a)*st.bspd*0.8; const {m,anim}=bulletSprite(word,st.wcol,st.bsize,vx,0,vz); m.position.set(pl.x,pl.y+1.2,pl.z); scene.add(m); bbul.push({m,anim,x:pl.x,y:pl.y+1.2,z:pl.z,vx,vy:0,vz,dmg:st.dmg*1.2,life:1.1,by:pl.id,pierce:0,r:0.22*st.bsize,hits:[],frost:false}); } break;
+    case 'bikini': ring(pl.x,pl.y,pl.z,25,0x8fb8ff,0.6); break;
+  } }
 function botTargets(pl){ const out=[]; if(!P.down&&!P.elim&&!over)out.push({id:NET.me,x:P.x,y:P.y,z:P.z}); for(const [id,o] of NET.players){ if(o===pl||id===NET.me||(id==='host'&&NET.role==='host')||o.down||o.elim||!o.g)continue; out.push({id,x:o.x,y:o.y,z:o.z,pl:o}); } return out; }
 function botThink(pl,dt){ // bare-minimum cpu: find the nearest ethan in sight and shoot at it with whatever this cpu has learned
   if(NET.role==='client')return; const st=pl.st; if(!st)return; pl.fireT-=dt; let best=null,bd=46*46; for(const q of botTargets(pl)){ const d=(q.x-pl.x)**2+(q.z-pl.z)**2; if(d<bd&&los(pl.x,pl.y+1.3,pl.z,q.x,q.y+1.3,q.z)){bd=d;best=q;} } pl.tgt=best; if(!best||pl.fireT>0)return; pl.fireT=1/st.rate; pl.face=best.x<pl.x?-1:1;
