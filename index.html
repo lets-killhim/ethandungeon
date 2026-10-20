@@ -127,7 +127,7 @@ button.alt{background:var(--box);color:var(--pfg)}button.alt:hover,button.alt:fo
 .maps button.sel{color:var(--edge);border-color:var(--hl);background:var(--hl)}
 .faces .orbpick{width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff6d6,#ffd36b 60%,#d9a400);box-shadow:0 0 16px #ffd36b}
 #lvwrap{transform-origin:50% 100%;will-change:transform}#lvl{position:relative;z-index:10}.card.picked{transform:scale(1.06);box-shadow:inset 0 0 0 2px var(--box2),0 0 0 3px var(--hl),4px 4px 0 #000}#lvl.closing #lvwrap{animation:lvshut .42s cubic-bezier(.55,0,.2,1) forwards}#lvl.closing h2,#lvl.closing .sub{opacity:0;transition:opacity .15s}.lvghost{position:fixed;transform-origin:50% 100%;border-radius:18px;opacity:.85;pointer-events:none;animation:lvshut .42s cubic-bezier(.55,0,.2,1) forwards}@keyframes lvshut{0%{transform:scale(1,1);opacity:1}18%{transform:scale(1.04,1.03)}75%{transform:scale(.32,.05) translateY(0);opacity:1;border-radius:999px}100%{transform:scale(.28,.02) translateY(30px);opacity:0;border-radius:999px}}
-@media (prefers-reduced-motion:reduce){.card.r4{animation:none}.card{transition:none}.lvghost,#lvl.closing #lvwrap{animation:none}}
+@media (prefers-reduced-motion:reduce){.card.r4{animation:none}}
 </style>
 
 <canvas id="c"></canvas>
