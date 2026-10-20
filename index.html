@@ -126,7 +126,7 @@ button.alt{background:var(--box);color:var(--pfg)}button.alt:hover,button.alt:fo
 .maps button{font-size:15px;padding:7px 16px;background:var(--box);color:var(--pdim);border:3px solid var(--edge);box-shadow:none}
 .maps button.sel{color:var(--edge);border-color:var(--hl);background:var(--hl)}
 .faces .orbpick{width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff6d6,#ffd36b 60%,#d9a400);box-shadow:0 0 16px #ffd36b}
-#lvl{position:relative;z-index:10}.card.picked{transform-origin:50% 100%;transition:none;animation:lvshut .42s cubic-bezier(.55,0,.2,1) forwards;box-shadow:inset 0 0 0 2px var(--box2),0 0 0 3px var(--hl),4px 4px 0 #000;z-index:2}.card.faded{transition:opacity .2s;opacity:0}#lvl.closing h2,#lvl.closing .sub,#lvl.closing .hint{opacity:0;transition:opacity .15s}.lvghost{position:fixed;transform-origin:50% 100%;border-radius:18px;opacity:.85;pointer-events:none;animation:lvshut .42s cubic-bezier(.55,0,.2,1) forwards}@keyframes lvshut{0%{transform:scale(1,1);opacity:1}18%{transform:scale(1.04,1.03)}75%{transform:scale(.32,.05) translateY(0);opacity:1;border-radius:999px}100%{transform:scale(.28,.02) translateY(30px);opacity:0;border-radius:999px}}
+#lvl{position:relative;z-index:10}.card.picked{transform-origin:50% 100%;transition:none;animation:lvshut .42s cubic-bezier(.55,0,.2,1) forwards;box-shadow:inset 0 0 0 2px var(--box2),0 0 0 3px var(--hl),4px 4px 0 #000;z-index:2}.card.faded{transition:opacity .2s;opacity:0}#lvl.closing h2,#lvl.closing .sub,#lvl.closing .hint{opacity:0;transition:opacity .15s}.lvghost{position:fixed;transform-origin:50% 100%;border-radius:5px;opacity:.85;pointer-events:none;animation:lvshut .42s cubic-bezier(.55,0,.2,1) forwards}@keyframes lvshut{0%{transform:scale(1,1);opacity:1}18%{transform:scale(1.04,1.03)}75%{transform:scale(.32,.05) translateY(0);opacity:1;border-radius:6px}100%{transform:scale(.28,.02) translateY(30px);opacity:0;border-radius:6px}}
 @media (prefers-reduced-motion:reduce){.card.r4{animation:none}}
 </style>
 
@@ -812,7 +812,9 @@ function renderFaces(){ for(const [fid,cid] of [['faces','classinfo'],['faces2',
 function canSwitchNow(){ return P.down||(P.spawnAt!=null&&T-P.spawnAt<5); }
 function toggleClassMenu(force){ const cm=$('classmenu'); const open=force!==undefined?force:cm.hidden; if(!isArena()||!running||over){ cm.hidden=true; return; } cm.hidden=!open; for(const k in keys)keys[k]=false; fireDown=false; ads=false; if(open){ renderFaces(); $('cmnote').textContent=canSwitchNow()?'· pick one — switches now':'· pick one — switches when you respawn'; $('classinfo2').innerHTML=$('classinfo').innerHTML; if(document.pointerLockElement===cv)document.exitPointerLock(); } else lockPointer(); }
 function pickSkin(sk){ if(canSwitchNow())applySkin(sk); else { nextSkin=sk; log('next life: <b>'+(CLASSES[sk]||{}).n+'</b>'); } toggleClassMenu(false); }
-function useActive(){ if(!running||over||choosing||paused||P.down||P.cd>0||!myClass().a)return; const C=myClass(); P.cd=C.cd; C.act(); hudPulse=0.25; }
+const MIRROR_ACTS=new Set(['chain','summit','headphones','bow']);
+function useActive(){ if(!running||over||choosing||paused||P.down||P.cd>0||!myClass().a)return; const C=myClass(); P.cd=C.cd; C.act(); hudPulse=0.25;
+  if(mirror&&MIRROR_ACTS.has(skin)){ const ox=P.x,oy=P.y,oz=P.z,hp=P.hp,dmg=P.dmg; P.x=mirror.x;P.y=mirror.y;P.z=mirror.z; P.dmg*=0.6; try{ C.act(); }finally{ P.x=ox;P.y=oy;P.z=oz; P.dmg=dmg; P.hp=Math.min(hp+ (P.hp-hp)*0,P.maxhp); P.hp=hp; } } }
 function lockPointer(){ if(running&&!paused&&!choosing&&document.pointerLockElement!==cv){ try{ const r=cv.requestPointerLock(); if(r&&r.catch)r.catch(()=>{}); }catch(err){} } }
 function classHtml(C){ return `<div><b>${C.n}</b></div><div><span class="k">passive · </span>${C.p}</div>`+(C.a?`<div><span class="k">Q · </span><b>${C.a}</b> — ${C.ad} <span class="k">(${C.cd}s)</span></div>`:`<div><span class="k">no ability</span></div>`); }
 function classInfo(){ const C=myClass(); $('classinfo').innerHTML=classHtml(C); }
@@ -1038,9 +1040,9 @@ function aimPoint(){ // where the crosshair actually lands: march the camera ray
   return [cx+_aimV.x*t,cy+_aimV.y*t,cz+_aimV.z*t]; }
 function aimDir(ox,oy,oz){ const [px,py,pz]=aimPoint(); const ax=px-ox,ay=py-oy,az=pz-oz; const l=Math.hypot(ax,ay,az)||1; return [ax/l,ay/l,az/l]; }
 function arenaFire(){ const oy=P.y+1.3; const [dx,dy,dz]=aimDir(P.x,oy,P.z); const base=Math.atan2(dz,dx); const horiz=Math.max(0.05,Math.hypot(dx,dz)); P.faceA=base; const n=1+P.fan; const sp=P.fan?0.14:0;
-  const one=(a,ox,oz,mul)=>{ const h=P.bspd*horiz; addBullet(P.x+ox,oy,P.z+oz,Math.cos(a)*h,P.bspd*dy,Math.sin(a)*h,P.dmg*mul,{life:1.1*P.range,nomit:true}); };
-  for(let i=0;i<n;i++){ const a=base+(i-(n-1)/2)*sp; one(a,0,0,1); for(let t=1;t<=P.twin;t++){ const px=-Math.sin(base)*0.6*t,pz=Math.cos(base)*0.6*t; one(a,px,pz,1); one(a,-px,-pz,1); } }
-  if(mirror){ const h=P.bspd*horiz; addBullet(mirror.x,mirror.y+1.3,mirror.z,Math.cos(base)*h,P.bspd*dy,Math.sin(base)*h,P.dmg*0.6,{mirror:true,nomit:true,life:1.1*P.range}); }
+  const one=(a,ox,oz,mul,from)=>{ const h=P.bspd*horiz; const fx=from?from.x:P.x,fy=from?from.y+1.3:oy,fz=from?from.z:P.z; addBullet(fx+ox,fy,fz+oz,Math.cos(a)*h,P.bspd*dy,Math.sin(a)*h,P.dmg*mul,{life:1.1*P.range,nomit:true,mirror:!!from}); };
+  const volley=(from,mul)=>{ for(let i=0;i<n;i++){ const a=base+(i-(n-1)/2)*sp; one(a,0,0,mul,from); for(let t=1;t<=P.twin;t++){ const px=-Math.sin(base)*0.6*t,pz=Math.cos(base)*0.6*t; one(a,px,pz,mul,from); one(a,-px,-pz,mul,from); } } };
+  volley(null,1); if(mirror)volley(mirror,0.6);
   AU.shoot(0); P.shotN++; }
 function pvpHit(from,dmg,kx,kz,frost,burn){ if(!isArena()||P.down||P.elim||over)return; if(choosing)txt(P.x,P.y+2.6,P.z,'choose!','#ff5c7a',1.1); if(P.dodge&&Math.random()<P.dodge){ txt(P.x,P.y+2,P.z,'dodge','#6be3ff',1); return; } if(P.shield>0&&P.shieldT<=0){ P.shieldT=12/P.shield; burst(P.x,P.y+1,P.z,0x6be3ff,14,6,0.4); txt(P.x,P.y+2.4,P.z,'blocked','#6be3ff',1.2); AU.tone(900,{type:'triangle',dur:0.12,vol:0.1,slide:1400}); return; }
   dmg*=1-P.dr; P.hp-=dmg; trickCheck(); P.vx+=kx; P.vz+=kz; if(frost)P.slowT=1.5; if(burn){ P.burnT=3; P.burnFrom=from; } flashRed=0.5; doShake(0.4); AU.hurt(); burst(P.x,P.y+0.5,P.z,0xff5c7a,12,8,0.5); txt(P.x,P.y+1.5,P.z,'-'+Math.round(dmg),'#ff5c7a',1.3);
@@ -1239,6 +1241,7 @@ function pickTrait(i){ const t=offerCards[i]; if(!t||!choosing)return; applyTrai
   syncOrbitals(); if(P.friend&&!allies.some(a=>a.life===Infinity))spawnAlly(P.x+1,P.z+1,2.3,Infinity,'suit'); if(P.mirror&&!mirror)mirror=makeMirror(P.x-2,P.y,P.z);
   choosing=false; const cards=[...$('cards').children]; cards.forEach((c,k)=>{ c.style.pointerEvents='none'; c.classList.add(k===i?'picked':'faded'); }); const panel=$('lvl'); const picked=cards[i];
   // the clicked card snaps down into a pill with a rainbow of ghost layers trailing behind it; the others just fade
+  if(!picked){ if(pendingLevels>0)showLevel(); else { hideOv(); lockPointer(); } return; }
   const r=picked.getBoundingClientRect(); const ghosts=[]; ['#ffb347','#c77dff','#67a9ff','#6fe39a'].forEach((col,k)=>{ const g=document.createElement('div'); g.className='lvghost'; g.style.cssText=`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:${col};animation-delay:${(k+1)*45}ms;z-index:${5-k}`; $('ov').insertBefore(g,panel); ghosts.push(g); });
   panel.classList.add('closing');
   setTimeout(()=>{ cards.forEach(c=>c.classList.remove('picked','faded')); panel.classList.remove('closing'); ghosts.forEach(g=>g.remove()); if(pendingLevels>0)showLevel(); else { hideOv(); lockPointer(); } },pendingLevels>0?380:440); }
