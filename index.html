@@ -1017,7 +1017,7 @@ function arenaSlot(id){ if(NET.slots&&NET.slots[id]!=null)return NET.slots[id]; 
 function placeAtAltar(){ const a=isArena()?riftSpawnTile('me'):(altars[myAltar]||{x:(startTile[0]+0.5)*TS,z:(startTile[1]+0.5)*TS,y:hAt(startTile[0],startTile[1])}); P.x=a.x+R(-1,1); P.z=a.z+R(-1,1); P.y=a.y+0.4; P.vx=P.vz=P.vy=0; P.inv=2.5; buildFlow(); }
 function spawnKeeper(){ if(keeperRoom<0||keeperRef)return; const r=rooms[keeperRoom]; const e=spawnEnemy('tank',(r.cx+0.5)*TS,(r.cz+0.5)*TS); e.keeper=true; e.h=10; e.r=3; e.hp=e.maxhp=1100*(1+0.3*(playerCount()-1)); e.spd=2.6; e.dmg=24; e.xp=40; e.g.remove(e.sp); e.sp=makeSprite('summit',10); e.g.add(e.sp); e.ar=e.sp.scale.x/e.sp.scale.y; e.sh.scale.setScalar(2.8); e.home={x:(r.cx+0.5)*TS,z:(r.cz+0.5)*TS}; keeperRef=e; }
 function keeperAI(e,dt){ const dh=Math.hypot(e.x-e.home.x,e.z-e.home.z); e.leash=dh>14; }
-function openChest(id,by){ const c=chests[id]; if(!c||c.open)return; c.open=true; if(by===NET.me&&P.grow){ P.sizeMul=(P.sizeMul||1)+P.grow; P.r=0.6*Math.sqrt(P.sizeMul); txt(P.x,P.y+PH*P.sizeMul+0.5,P.z,'bigger','#ffd36b',1.1); } c.lid.rotation.x=-1.2; c.lid.position.z=-0.4; c.sp.visible=false; burst(c.x,c.y+1,c.z,0xffd36b,24,8,0.8); AU.heal();
+function openChest(id,by){ const c=chests[id]; if(!c||c.open)return; c.open=true; if(by===NET.me&&P.grow){ P.sizeMul=(P.sizeMul||1)+P.grow; P.r=0.6*Math.sqrt(P.sizeMul); txt(P.x,P.y+PH*P.sizeMul+0.5,P.z,'bigger','#ffd36b',1.1); } c.lid.rotation.x=-1.2; c.lid.position.z=-0.4; c.sp.visible=false; burst(c.x,c.y+1,c.z,0xffd36b,24,8,0.8); if(by===NET.me)AU.heal();
   if(by===NET.me)showChest(); }
 function showChest(){ const avail=ATR.filter(t=>!t.max||trCount(t.id)<t.max); if(!avail.length)return; const picks=[]; let tries=0; while(picks.length<3&&picks.length<avail.length&&tries++<60){ const c=avail[RI(0,avail.length-1)]; if(!picks.includes(c))picks.push(c); } offerCards=picks; choosing=true; AU.heal(); $('lvh').textContent='treasure'; $('lvn').textContent=''; $('lvq').textContent='';
   $('cards').innerHTML=offerCards.map((t,i)=>`<button class="card r${t.r}" type="button" data-i="${i}"><span class="key">${i+1}</span><div class="rar">${RAR[t.r]}${trCount(t.id)?' · owned ×'+trCount(t.id):''}</div><div class="nm">${t.n}</div><div class="ds">${t.d}</div>${t.m?`<div class="tip">${t.m}</div>`:''}</button>`).join('')+(offerCards.some(t=>t.m)?'<div class="hint">hold shift for details</div>':''); show('lvl'); const c=$('cards').querySelector('.card'); if(c)c.focus({preventScroll:true}); }
@@ -1249,7 +1249,7 @@ const camTarget=new THREE.Vector3(), camPos=new THREE.Vector3();
 function update(dt){
   if(NET.role!=='client')T+=dt; if(logT>0)logT-=dt; const frozen=!!NET.role&&(choosing||paused); const canAct=!frozen&&!P.down;
   // camera input
-  if(touch.look){camYaw-=touch.look.dx*0.006; camPitch=clamp(camPitch+touch.look.dy*0.004,isArena()?-0.55:0.12,PITCH_MAX); touch.look.dx=touch.look.dy=0;}
+  if(touch.look){camYaw-=touch.look.dx*0.006; camPitch=clamp(camPitch+touch.look.dy*0.004,isArena()?-1.42:0.12,PITCH_MAX); touch.look.dx=touch.look.dy=0;}
   // movement relative to camera
   let ix=0,iz=0; if(keys.KeyA||keys.ArrowLeft)ix-=1; if(keys.KeyD||keys.ArrowRight)ix+=1; if(keys.KeyW||keys.ArrowUp)iz-=1; if(keys.KeyS||keys.ArrowDown)iz+=1;
   if(touch.move){const dx=touch.move.x-touch.move.ox,dy=touch.move.y-touch.move.oy,d=Math.hypot(dx,dy); if(d>6){const m=Math.min(1,d/48);ix=dx/d*m;iz=dy/d*m;}}
@@ -1485,7 +1485,7 @@ addEventListener('keydown',e=>{ if(e.key==='Tab'&&running&&isArena()){ e.prevent
 addEventListener('keyup',e=>{keys[e.code]=false; if(e.key==='Shift')$('cards').classList.remove('shift'); if(e.key==='Tab'){$('tabpanel').hidden=true;$('tabtip').hidden=true;lockPointer();}});
 addEventListener('blur',()=>{ads=false;fireDown=false;for(const k in keys)keys[k]=false; touch.move=touch.look=null;});
 // mouse look: just move the mouse. clicking the field locks the pointer so it never hits the screen edge.
-cv.addEventListener('mousemove',e=>{ if(!running||paused||choosing)return; const sens=1-0.5*adsK; camYaw-=e.movementX*0.0045*sens; camPitch=clamp(camPitch+e.movementY*0.003*sens,isArena()?-0.55:0.12,PITCH_MAX); });
+cv.addEventListener('mousemove',e=>{ if(!running||paused||choosing)return; const sens=1-0.5*adsK; camYaw-=e.movementX*0.0045*sens; camPitch=clamp(camPitch+e.movementY*0.003*sens,isArena()?-1.42:0.12,PITCH_MAX); });
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('mousedown',e=>{ if(e.button===2&&running){ e.preventDefault(); if(isArena())ads=true; else useActive(); } if(e.button===0&&isArena()&&running){ fireDown=true; fireTap=true; } });
 $('actb').addEventListener('pointerdown',e=>{e.preventDefault();useActive();});
