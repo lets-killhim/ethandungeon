@@ -30,7 +30,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-actio
 .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;max-height:48px;overflow:hidden}
 .chip{font-size:12px;padding:1px 6px;border:1px solid currentColor;color:var(--rd0);background:var(--box);line-height:1.3}
 .chip.r1{color:var(--rd1)}.chip.r2{color:var(--rd2)}.chip.r3{color:var(--rd3)}.chip.r4{color:var(--rd4)}
-#ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(12,10,26,.78);
+#ov{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(12,10,26,.78);
   padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow:auto}
 .panel{text-align:center;max-width:760px;width:100%;min-width:0}
 h1{font-size:clamp(44px,9vw,84px);margin:0;font-weight:700;letter-spacing:-.02em;line-height:1;text-shadow:4px 4px 0 #000}
@@ -126,8 +126,8 @@ button.alt{background:var(--box);color:var(--pfg)}button.alt:hover,button.alt:fo
 .maps button{font-size:15px;padding:7px 16px;background:var(--box);color:var(--pdim);border:3px solid var(--edge);box-shadow:none}
 .maps button.sel{color:var(--edge);border-color:var(--hl);background:var(--hl)}
 .faces .orbpick{width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff6d6,#ffd36b 60%,#d9a400);box-shadow:0 0 16px #ffd36b}
-.card.picked{animation:cardpick .36s cubic-bezier(.2,.9,.3,1.2) forwards;z-index:2}.card.dropped{animation:carddrop .3s ease-in forwards}#lvl.closing{animation:panelfade .36s ease-in forwards}@keyframes cardpick{0%{transform:scale(1)}25%{transform:scale(1.08)}60%{transform:scale(.55);opacity:1;border-radius:14px}100%{transform:scale(.05);opacity:0;border-radius:999px}}@keyframes carddrop{to{transform:translateY(26px) scale(.92);opacity:0}}@keyframes panelfade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.card.r4{animation:none}.card{transition:none}.card.picked,.card.dropped,#lvl.closing{animation:none}}
+#lvwrap{transform-origin:50% 100%;will-change:transform}#lvl{position:relative;z-index:10}.card.picked{transform:scale(1.06);box-shadow:inset 0 0 0 2px var(--box2),0 0 0 3px var(--hl),4px 4px 0 #000}#lvl.closing #lvwrap{animation:lvshut .42s cubic-bezier(.55,0,.2,1) forwards}#lvl.closing h2,#lvl.closing .sub{opacity:0;transition:opacity .15s}.lvghost{position:fixed;transform-origin:50% 100%;border-radius:18px;opacity:.85;pointer-events:none;animation:lvshut .42s cubic-bezier(.55,0,.2,1) forwards}@keyframes lvshut{0%{transform:scale(1,1);opacity:1}18%{transform:scale(1.04,1.03)}75%{transform:scale(.32,.05) translateY(0);opacity:1;border-radius:999px}100%{transform:scale(.28,.02) translateY(30px);opacity:0;border-radius:999px}}
+@media (prefers-reduced-motion:reduce){.card.r4{animation:none}.card{transition:none}.lvghost,#lvl.closing #lvwrap{animation:none}}
 </style>
 
 <canvas id="c"></canvas>
@@ -187,11 +187,12 @@ button.alt{background:var(--box);color:var(--pfg)}button.alt:hover,button.alt:fo
     <p class="mini" id="loadmsg">loading him…</p>
     <div class="board" id="board" hidden><div class="bh">scoreboard <span id="bsrc"></span></div><table id="btab"><tbody></tbody></table></div>
   </div>
-  <div class="panel" id="lvl" hidden>
+  <div class="panel" id="lvl" hidden><div id="lvwrap">
     <h2><span id="lvh">level</span> <span id="lvn">2</span></h2>
     <div class="sub" style="margin:0">choose one</div>
     <div class="cards" id="cards"></div>
     <p class="mini" id="lvq"></p>
+  </div>
   </div>
   <div class="panel" id="dead" hidden>
     <h2 id="deadh">he got you</h2>
@@ -298,7 +299,7 @@ const ETYPES={
 // ---------- three setup ----------
 const cv=$('c');
 const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:false,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(1.5,window.devicePixelRatio||1)); renderer.shadowMap.enabled=false; renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.setPixelRatio(Math.min(1.25,window.devicePixelRatio||1)); renderer.shadowMap.enabled=false; renderer.outputEncoding=THREE.sRGBEncoding;
 const SKY=0x070303; const scene=new THREE.Scene(); scene.background=new THREE.Color(SKY); scene.fog=new THREE.Fog(SKY,28,70);
 const camera=new THREE.PerspectiveCamera(76,1,0.1,300);
 function resize(){ const w=window.innerWidth,h=window.innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
@@ -697,7 +698,7 @@ const WORD_COL={y:['#ffe14d','#ff6a00'],p:['#e9a8ff','#7a2bd6'],w:['#ffffff','#f
 const wordCache=new Map();
 const PROJ={wave:['sheet03',14,2],splash:['sheet05',15,2]};
 function bulletSprite(word,col,sz,vx,vy,vz){ // a word, an emoji, or ~fx (an animated sheet row); returns the sprite plus an anim record for sheet bullets
-  if(word&&word[0]==='~'&&PROJ[word.slice(1)]){ const [sheet,cols,row]=PROJ[word.slice(1)]; const tex=fxTex(sheet).clone(); tex.needsUpdate=true; tex.repeat.set(1/cols,1/9); tex.offset.set(0,1-(row+1)/9); const m=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false})); m.scale.set(2.6*sz,2.6*sz,1); const rx=Math.cos(camYaw),rz=-Math.sin(camYaw); m.material.rotation=Math.atan2(vy||0,(vx||1)*rx+(vz||0)*rz); return {m,anim:{tex,cols,fps:18,t:0,frame:0}}; }
+  if(word&&word[0]==='~'&&PROJ[word.slice(1)]){ const [sheet,cols,row]=PROJ[word.slice(1)]; let tex=fxRowTex(sheet,cols,row); if(!tex){ tex=fxTex(sheet).clone(); tex.needsUpdate=true; tex.repeat.set(1/cols,1/9); tex.offset.set(0,1-(row+1)/9); } const m=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false})); m.scale.set(2.6*sz,2.6*sz,1); const rx=Math.cos(camYaw),rz=-Math.sin(camYaw); m.material.rotation=Math.atan2(vy||0,(vx||1)*rx+(vz||0)*rz); return {m,anim:{tex,cols,fps:18,t:0,frame:0}}; }
   const tex=wordTexFor(word,col); const m=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false})); const ar=tex.ar||2.67; const k=tex.emoji?1.3:0.7; m.scale.set(k*ar*sz,k*sz,1); return {m,anim:null}; }
 function wordTexFor(word,colKey='y'){ const k=word+'|'+colKey; let t=wordCache.get(k); if(!t){ const [c,o]=WORD_COL[colKey]; t=wordTex(word,c,o); wordCache.set(k,t); } return t; }
 let bulletTex=true; function buildBulletTex(){ wordTexFor('ETHAN'); }
@@ -739,8 +740,12 @@ function reset(){
 const FXS={}; function fxTex(n){ if(FXS[n])return FXS[n]; const t=new THREE.TextureLoader().load('fx/'+n+'.png'); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; t.encoding=THREE.sRGBEncoding; FXS[n]=t; return t; }
 const FXDEF={hit:['sheet10',14,5],crit:['sheet15',8,0],poof:['sheet12',14,6],burn:['sheet23',9,0],frost:['sheet18',8,2],freeze:['sheet09',14,2],nova:['sheet08',14,5],rico:['sheet06',13,3],wall:['sheet21',8,3],zap:['sheet19',9,2],vortex:['sheet02',13,1],aura:['sheet13',14,1],shrap:['sheet11',14,0],boom:['sheet05',15,4],homing:['sheet25',9,1],shove:['sheet17',8,5],tracer:['sheet20',8,7],tipsy:['sheet07',14,6],charm:['sheet22',9,7]};
 let fxs=[];
-function spawnFx(kind,x,y,z,o={}){ if(fxs.length>90||!FXDEF[kind])return null; let [sheet,cols,row]=FXDEF[kind]; if(o.row!=null)row=o.row; const tex=fxTex(sheet).clone(); tex.needsUpdate=true; tex.repeat.set(1/cols,1/9); tex.offset.set(0,1-(row+1)/9); const m=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false,blending:o.add?THREE.AdditiveBlending:THREE.NormalBlending,rotation:o.rot||0})); const sz=o.size||2; m.scale.set(sz,sz,1); m.position.set(x,y,z); scene.add(m); const fps=o.fps||18; const f={m,tex,cols,t:0,fps,loop:!!o.loop,life:o.life||cols/fps,follow:o.follow||null,dy:o.dy||0,frame:0}; fxs.push(f); return f; }
-function updateFx(dt){ for(const f of fxs){ f.t+=dt; f.life-=dt; if(f.follow){ const q=f.follow; if(q.dead||q.gone)f.life=0; else f.m.position.set(q.x,q.y+f.dy,q.z); } const fr=Math.floor(f.t*f.fps); const frame=f.loop?fr%f.cols:Math.min(f.cols-1,fr); if(frame!==f.frame){ f.frame=frame; f.tex.offset.x=frame/f.cols; } if(f.life<=0||(!f.loop&&fr>=f.cols)){ f.dead=true; scene.remove(f.m); f.tex.dispose(); } } fxs=fxs.filter(f=>!f.dead); }
+const FXROW={};
+function fxRowTex(sheet,cols,row){ // one small canvas per (sheet,row) and a pool of 8 textures on it, so spawning an effect never re-uploads a whole sheet to the GPU
+  const key=sheet+'|'+row; let r=FXROW[key]; if(!r){ const img=fxTex(sheet).image; if(!img||!img.width)return null; const c=document.createElement('canvas'); c.width=cols*64; c.height=64; c.getContext('2d').drawImage(img,0,row*64,cols*64,64,0,0,cols*64,64); r=FXROW[key]={c,pool:[],i:0}; }
+  let t; if(r.pool.length<8){ t=new THREE.CanvasTexture(r.c); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; t.encoding=THREE.sRGBEncoding; t.repeat.set(1/cols,1); r.pool.push(t); } else t=r.pool[r.i++%r.pool.length]; t.offset.set(0,0); return t; }
+function spawnFx(kind,x,y,z,o={}){ if(fxs.length>90||!FXDEF[kind])return null; let [sheet,cols,row]=FXDEF[kind]; if(o.row!=null)row=o.row; let tex=fxRowTex(sheet,cols,row); if(!tex){ tex=fxTex(sheet).clone(); tex.needsUpdate=true; tex.repeat.set(1/cols,1/9); tex.offset.set(0,1-(row+1)/9); tex.pooled=false; } const m=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false,blending:o.add?THREE.AdditiveBlending:THREE.NormalBlending,rotation:o.rot||0})); const sz=o.size||2; m.scale.set(sz,sz,1); m.position.set(x,y,z); scene.add(m); const fps=o.fps||18; const f={m,tex,cols,t:0,fps,loop:!!o.loop,life:o.life||cols/fps,follow:o.follow||null,dy:o.dy||0,frame:0}; fxs.push(f); return f; }
+function updateFx(dt){ for(const f of fxs){ f.t+=dt; f.life-=dt; if(f.follow){ const q=f.follow; if(q.dead||q.gone)f.life=0; else f.m.position.set(q.x,q.y+f.dy,q.z); } const fr=Math.floor(f.t*f.fps); const frame=f.loop?fr%f.cols:Math.min(f.cols-1,fr); if(frame!==f.frame){ f.frame=frame; f.tex.offset.x=frame/f.cols; } if(f.life<=0||(!f.loop&&fr>=f.cols)){ f.dead=true; scene.remove(f.m); f.m.material.dispose(); } } fxs=fxs.filter(f=>!f.dead); }
 function clearFx(){ for(const f of fxs){scene.remove(f.m);} fxs=[]; auraFx=null; }
 let auraFx=null;
 // ---------- pixel hud (hud "A": pellets, star xp, orb cooldown, heart lives) ----------
@@ -1156,7 +1161,7 @@ function spawnEdge(type){ let list=reachable; if(isArena()&&NET.role==='host'){ 
 function pickType(){ const f=MAP==='dungeon'?floor:1+Math.floor(T/120); const w=[['walker1',4],['walker2',4],['walker3',4],['walker4',4],['walker5',3],['walker6',3],['dart',f>=1&&T>20?4:0],['split',f>=2||T>50?2.5:0],['shade',f>=2?3+f:0],['head',f>=2?3:0],['tank',f>=3?3:0],['brute',f>=2?1.5+f:0]]; let tot=0;for(const x of w)tot+=x[1]; let r=R(tot); for(const x of w){r-=x[1];if(r<0)return x[0];} return 'walker1'; }
 
 // ---------- fx ----------
-function burst(x,y,z,col,n,spd,life,size=1){ if(parts.length>500)return; for(let i=0;i<n;i++){ const m=new THREE.Mesh(partGeo,pmat(col)); const a=R(TAU),b=R(-0.3,1),s=R(spd*0.3,spd); m.position.set(x,y,z); m.scale.setScalar(R(0.5,1.3)*size); scene.add(m); parts.push({m,vx:Math.cos(a)*Math.cos(b)*s,vy:Math.sin(b)*s+2,vz:Math.sin(a)*Math.cos(b)*s,life,max:life,rs:R(-6,6)}); } }
+function burst(x,y,z,col,n,spd,life,size=1){ if(parts.length>260)return; if(isArena())n=Math.max(2,Math.round(n*0.6)); for(let i=0;i<n;i++){ const m=new THREE.Mesh(partGeo,pmat(col)); const a=R(TAU),b=R(-0.3,1),s=R(spd*0.3,spd); m.position.set(x,y,z); m.scale.setScalar(R(0.5,1.3)*size); scene.add(m); parts.push({m,vx:Math.cos(a)*Math.cos(b)*s,vy:Math.sin(b)*s+2,vz:Math.sin(a)*Math.cos(b)*s,life,max:life,rs:R(-6,6)}); } }
 function ring(x,y,z,rad,col,life=0.35){ const m=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({color:col,transparent:true,side:THREE.DoubleSide,depthWrite:false})); m.rotation.x=-Math.PI/2; m.position.set(x,y+0.05,z); scene.add(m); parts.push({m,ring:true,rad,life,max:life}); }
 function txt(x,y,z,s,col,size=1){ if(texts.length>40)return; const c=document.createElement('canvas');c.width=128;c.height=64;const g=c.getContext('2d'); g.font='700 40px "Pixelify Sans",monospace';g.textAlign='center';g.textBaseline='middle'; g.fillStyle='#000';g.fillText(s,66,36);g.fillStyle=col;g.fillText(s,64,34);
   const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; const m=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthTest:false})); m.scale.set(2*size,1*size,1); m.position.set(x,y,z); scene.add(m); texts.push({m,life:0.8,t}); }
@@ -1230,10 +1235,13 @@ function showLevel(){ choosing=true; pendingLevels--; $('lvh').textContent='leve
   offerCards=offer(); $('lvn').textContent=P.level-pendingLevels; $('lvq').textContent=pendingLevels>0?`${pendingLevels} more level${pendingLevels>1?'s':''} queued`:'';
   $('cards').innerHTML=offerCards.map((t,i)=>`<button class="card r${t.r}" type="button" data-i="${i}"><span class="key">${i+1}</span><div class="rar">${RAR[t.r]}${trCount(t.id)?' · owned ×'+trCount(t.id):''}</div><div class="nm">${t.n}</div><div class="ds">${t.d}</div>${t.m?`<div class="tip">${t.m}</div>`:''}</button>`).join('')+(offerCards.some(t=>t.m)?'<div class="hint">hold shift for details</div>':'');
   show('lvl'); const c=$('cards').querySelector('.card'); if(c)c.focus({preventScroll:true}); }
-function pickTrait(i){ const t=offerCards[i]; if(!t||!choosing)return; applyTrait(t); P.traits.push(t.id); AU.pick(t.r); if(isArena()&&P.lives>(P.livesShown||0))P.livesShown=P.lives; log(`learned <b>${t.n}</b>.`); if(t.r>=3)burst(P.x,P.y+0.5,P.z,parseInt(RCOL[t.r].slice(1),16),50,14,1);
+function pickTrait(i){ const t=offerCards[i]; if(!t||!choosing)return; applyTrait(t); P.traits.push(t.id); AU.pick(t.r); if(isArena()&&P.lives>(P.livesShown||0))P.livesShown=P.lives; log(`learned <b>${t.n}</b>.`); burst(P.x,P.y+0.5,P.z,parseInt(RCOL[t.r].slice(1),16),[18,24,32,44,60][t.r],[8,9,11,13,15][t.r],0.8+t.r*0.15,1+t.r*0.15);
   syncOrbitals(); if(P.friend&&!allies.some(a=>a.life===Infinity))spawnAlly(P.x+1,P.z+1,2.3,Infinity,'suit'); if(P.mirror&&!mirror)mirror=makeMirror(P.x-2,P.y,P.z);
-  choosing=false; const cards=[...$('cards').children]; const picked=cards[i]; cards.forEach((c,k)=>{ c.style.pointerEvents='none'; c.classList.add(k===i?'picked':'dropped'); }); const panel=$('lvl'); panel.classList.add('closing');
-  setTimeout(()=>{ cards.forEach(c=>c.classList.remove('picked','dropped')); panel.classList.remove('closing'); if(pendingLevels>0)showLevel(); else { hideOv(); lockPointer(); } },pendingLevels>0?300:360); }
+  choosing=false; const cards=[...$('cards').children]; cards.forEach((c,k)=>{ c.style.pointerEvents='none'; if(k===i)c.classList.add('picked'); }); const panel=$('lvl'); const wrap=$('lvwrap');
+  // collapse the whole picker down into a pill, with a rainbow of ghost layers trailing behind it (like a sheet snapping shut)
+  const r=wrap.getBoundingClientRect(); const ghosts=[]; ['#ffb347','#c77dff','#67a9ff','#6fe39a'].forEach((col,k)=>{ const g=document.createElement('div'); g.className='lvghost'; g.style.cssText=`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:${col};animation-delay:${(k+1)*45}ms;z-index:${5-k}`; $('ov').insertBefore(g,panel); ghosts.push(g); });
+  panel.classList.add('closing');
+  setTimeout(()=>{ cards.forEach(c=>c.classList.remove('picked')); panel.classList.remove('closing'); ghosts.forEach(g=>g.remove()); if(pendingLevels>0)showLevel(); else { hideOv(); lockPointer(); } },pendingLevels>0?380:440); }
 $('cards').addEventListener('click',e=>{const c=e.target.closest('.card'); if(c)pickTrait(+c.dataset.i);});
 function syncOrbitals(){ while(orbitals.length<P.orbitalsN){const m=new THREE.Mesh(orbitalGeo,orbitalMat);scene.add(m);orbitals.push(m);} }
 function hurtPlayer(d){ if(P.inv>0||over||P.down)return; if(P.dodge&&Math.random()<P.dodge){ txt(P.x,P.y+2,P.z,'dodge','#6be3ff',1); P.inv=0.25; return; } d*=1-P.dr; P.hp-=d; trickCheck(); P.inv=0.6; flashRed=0.5; doShake(0.5); AU.hurt(); burst(P.x,P.y+0.3,P.z,0xff5c7a,14,8,0.5); txt(P.x,P.y+1.5,P.z,'-'+Math.round(d),'#ff5c7a',1.3);
