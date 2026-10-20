@@ -126,7 +126,8 @@ button.alt{background:var(--box);color:var(--pfg)}button.alt:hover,button.alt:fo
 .maps button{font-size:15px;padding:7px 16px;background:var(--box);color:var(--pdim);border:3px solid var(--edge);box-shadow:none}
 .maps button.sel{color:var(--edge);border-color:var(--hl);background:var(--hl)}
 .faces .orbpick{width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff6d6,#ffd36b 60%,#d9a400);box-shadow:0 0 16px #ffd36b}
-@media (prefers-reduced-motion:reduce){.card.r4{animation:none}.card{transition:none}}
+.card.picked{animation:cardpick .36s cubic-bezier(.2,.9,.3,1.2) forwards;z-index:2}.card.dropped{animation:carddrop .3s ease-in forwards}#lvl.closing{animation:panelfade .36s ease-in forwards}@keyframes cardpick{0%{transform:scale(1)}25%{transform:scale(1.08)}60%{transform:scale(.55);opacity:1;border-radius:14px}100%{transform:scale(.05);opacity:0;border-radius:999px}}@keyframes carddrop{to{transform:translateY(26px) scale(.92);opacity:0}}@keyframes panelfade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.card.r4{animation:none}.card{transition:none}.card.picked,.card.dropped,#lvl.closing{animation:none}}
 </style>
 
 <canvas id="c"></canvas>
@@ -1019,7 +1020,7 @@ function spawnKeeper(){ if(keeperRoom<0||keeperRef)return; const r=rooms[keeperR
 function keeperAI(e,dt){ const dh=Math.hypot(e.x-e.home.x,e.z-e.home.z); e.leash=dh>14; }
 function openChest(id,by){ const c=chests[id]; if(!c||c.open)return; c.open=true; if(by===NET.me&&P.grow){ P.sizeMul=(P.sizeMul||1)+P.grow; P.r=0.6*Math.sqrt(P.sizeMul); txt(P.x,P.y+PH*P.sizeMul+0.5,P.z,'bigger','#ffd36b',1.1); } c.lid.rotation.x=-1.2; c.lid.position.z=-0.4; c.sp.visible=false; burst(c.x,c.y+1,c.z,0xffd36b,24,8,0.8); if(by===NET.me)AU.heal();
   if(by===NET.me)showChest(); }
-function showChest(){ const avail=ATR.filter(t=>!t.max||trCount(t.id)<t.max); if(!avail.length)return; const picks=[]; let tries=0; while(picks.length<3&&picks.length<avail.length&&tries++<60){ const c=avail[RI(0,avail.length-1)]; if(!picks.includes(c))picks.push(c); } offerCards=picks; choosing=true; AU.heal(); $('lvh').textContent='treasure'; $('lvn').textContent=''; $('lvq').textContent='';
+function showChest(){ const avail=ATR.filter(t=>!t.max||trCount(t.id)<t.max); if(!avail.length)return; const picks=[]; let tries=0; while(picks.length<3&&picks.length<avail.length&&tries++<60){ const c=avail[RI(0,avail.length-1)]; if(!picks.includes(c))picks.push(c); } offerCards=picks; choosing=true; P.chestHold=0; $('chestring').hidden=true; AU.heal(); $('lvh').textContent='treasure'; $('lvn').textContent=''; $('lvq').textContent='';
   $('cards').innerHTML=offerCards.map((t,i)=>`<button class="card r${t.r}" type="button" data-i="${i}"><span class="key">${i+1}</span><div class="rar">${RAR[t.r]}${trCount(t.id)?' · owned ×'+trCount(t.id):''}</div><div class="nm">${t.n}</div><div class="ds">${t.d}</div>${t.m?`<div class="tip">${t.m}</div>`:''}</button>`).join('')+(offerCards.some(t=>t.m)?'<div class="hint">hold shift for details</div>':''); show('lvl'); const c=$('cards').querySelector('.card'); if(c)c.focus({preventScroll:true}); }
 function hitmarker(){ if(!isArena())return; AU.noise({dur:0.045,vol:0.32,type:'bandpass',f:3200,fe:900,q:1.4,verb:0}); AU.tone(2600,{type:'square',dur:0.02,vol:0.08,slide:1200,verb:0}); const h=$('hitmk'); h.classList.remove('off'); h.classList.add('on'); clearTimeout(hitmkT); hitmkT=setTimeout(()=>{h.classList.remove('on');h.classList.add('off');},90); }
 const _aimV=new THREE.Vector3();
@@ -1231,7 +1232,8 @@ function showLevel(){ choosing=true; pendingLevels--; $('lvh').textContent='leve
   show('lvl'); const c=$('cards').querySelector('.card'); if(c)c.focus({preventScroll:true}); }
 function pickTrait(i){ const t=offerCards[i]; if(!t||!choosing)return; applyTrait(t); P.traits.push(t.id); AU.pick(t.r); if(isArena()&&P.lives>(P.livesShown||0))P.livesShown=P.lives; log(`learned <b>${t.n}</b>.`); if(t.r>=3)burst(P.x,P.y+0.5,P.z,parseInt(RCOL[t.r].slice(1),16),50,14,1);
   syncOrbitals(); if(P.friend&&!allies.some(a=>a.life===Infinity))spawnAlly(P.x+1,P.z+1,2.3,Infinity,'suit'); if(P.mirror&&!mirror)mirror=makeMirror(P.x-2,P.y,P.z);
-  choosing=false; if(pendingLevels>0)setTimeout(showLevel,120); else { hideOv(); lockPointer(); } }
+  choosing=false; const cards=[...$('cards').children]; const picked=cards[i]; cards.forEach((c,k)=>{ c.style.pointerEvents='none'; c.classList.add(k===i?'picked':'dropped'); }); const panel=$('lvl'); panel.classList.add('closing');
+  setTimeout(()=>{ cards.forEach(c=>c.classList.remove('picked','dropped')); panel.classList.remove('closing'); if(pendingLevels>0)showLevel(); else { hideOv(); lockPointer(); } },pendingLevels>0?300:360); }
 $('cards').addEventListener('click',e=>{const c=e.target.closest('.card'); if(c)pickTrait(+c.dataset.i);});
 function syncOrbitals(){ while(orbitals.length<P.orbitalsN){const m=new THREE.Mesh(orbitalGeo,orbitalMat);scene.add(m);orbitals.push(m);} }
 function hurtPlayer(d){ if(P.inv>0||over||P.down)return; if(P.dodge&&Math.random()<P.dodge){ txt(P.x,P.y+2,P.z,'dodge','#6be3ff',1); P.inv=0.25; return; } d*=1-P.dr; P.hp-=d; trickCheck(); P.inv=0.6; flashRed=0.5; doShake(0.5); AU.hurt(); burst(P.x,P.y+0.3,P.z,0xff5c7a,14,8,0.5); txt(P.x,P.y+1.5,P.z,'-'+Math.round(d),'#ff5c7a',1.3);
@@ -1279,7 +1281,7 @@ function update(dt){
     // chests: press E near one
     let nearChest=null; for(const c of chests){ if(!c.open&&Math.hypot(c.x-P.x,c.z-P.z)<2.3&&Math.abs(c.y-P.y)<2.5){nearChest=c;break;} }
     if(nearChest&&keys.KeyE&&!P.down&&!choosing){ P.chestHold=(P.chestHold||0)+dt; if(P.chestHold>=1){ P.chestHold=0; const c=nearChest; if(NET.role==='client')toHost({t:'chest',id:c.id}); else { openChest(c.id,NET.me); if(NET.role==='host')netBroadcast({t:'chestgone',id:c.id,by:NET.me}); } } } else P.chestHold=0;
-    $('revbar').style.display='none'; const cr=$('chestring'); cr.hidden=!nearChest; if(nearChest){ drawRing($('chc'),Math.min(1,(P.chestHold||0)/1),P.chestHold>0); $('chesttxt').textContent=P.chestHold>0?'':'hold E'; }
+    $('revbar').style.display='none'; const cr=$('chestring'); cr.hidden=!nearChest||choosing; if(nearChest&&!choosing){ drawRing($('chc'),Math.min(1,(P.chestHold||0)/1),P.chestHold>0); $('chesttxt').textContent=P.chestHold>0?'':'hold E'; }
     for(const c of chests){ if(!c.open&&c.sp)c.sp.position.y=2+Math.sin(T*3+c.id)*0.15; } }
   else if(P.fireT<=0&&canAct){ P.fireT=1/(P.rate*(P.rooftop&&!P.grounded?2:1)*(P.adren&&P.hp/P.maxhp<0.3?1.6:1)); fireFrom(P.x,P.y+(pspr?1.3:0.5),P.z,1,false); if(mirror)fireFrom(mirror.x,mirror.y+1.3,mirror.z,0.6,true); }
   // waves + spawns (host only)
