@@ -955,7 +955,7 @@ const ATR=[
   {id:'a_flash',n:'flash step',d:'dash is a teleport',r:3,max:1,m:'dash becomes an instant blink twice as far that passes through players and thin walls',f:p=>p.flash=1},
   {id:'a_phase',n:'phase dash',d:'dash hurts and protects',r:3,max:1,m:'you can\'t be hit while dashing, and players you dash through take 40 damage',f:p=>p.phase=1},
   {id:'a_over',n:'overclock',d:'kills reset your Q',r:3,max:1,m:'every player kill refills your ability cooldown',f:p=>p.overclock=1},
-  {id:'a_mini',n:'minigun',d:'spray and pray',r:3,max:1,m:'+100% fire rate, −40% damage, bullets scatter a little',f:p=>{p.rate*=2;p.dmg*=0.6;p.scatter=0.12}},
+  {id:'a_mini',n:'minigun',d:'spray and pray',r:3,max:1,m:'+999% fire rate, −90% damage, bullets scatter a little',f:p=>{p.rate*=10.99;p.dmg*=0.1;p.scatter=0.12}},
   {id:'a_storm',n:'bulletstorm',d:'every 6th shot is a nova',r:3,max:1,m:'every sixth trigger pull also fires 12 bullets in a ring around you at 60%',f:p=>p.storm=1},
   {id:'a_swarm',n:'ethan swarm',d:'three minis orbit and shoot',r:4,max:1,m:'three tiny ethans circle you and each fires your volley at 30% when you fire',f:p=>p.swarm=1},
   {id:'a_tear',n:'on a tear',d:'kills snowball',r:4,max:1,m:'each player kill without dying: +12% damage and +8% speed, up to 5 stacks; dying clears it',f:p=>p.tear=1},
