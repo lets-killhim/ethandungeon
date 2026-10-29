@@ -140,6 +140,13 @@ button.alt{background:var(--box);color:var(--pfg)}button.alt:hover,button.alt:fo
 #pvname{font-size:16px;color:var(--fg);text-shadow:2px 2px 0 #000}
 @keyframes pvspin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
 @media (max-width:1200px){#preview{display:none}}
+#online{position:fixed;right:max(16px,env(safe-area-inset-right,0px));top:max(84px,calc(env(safe-area-inset-top,0px) + 84px));z-index:52;background:var(--box);color:var(--pfg);border:3px solid var(--edge);box-shadow:inset 0 0 0 2px var(--box2),4px 4px 0 #000;padding:3px 10px;font-size:14px;pointer-events:none}#online b{color:var(--rd1);font-size:18px}#online.off b{color:var(--pdim)}#online::before{content:'';display:inline-block;width:9px;height:9px;background:var(--rd1);border:2px solid var(--edge);margin-right:7px;vertical-align:1px}#online.off::before{background:var(--pdim)}
+#chat{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:74px;width:min(380px,70vw);z-index:52;pointer-events:none;font-size:14px;opacity:0;transition:opacity .25s}#chat.on,#chat.home{opacity:1}
+#chatlog{display:flex;flex-direction:column;gap:2px;max-height:190px;overflow:hidden;pointer-events:auto;cursor:text}#chatlog .cm{color:#fff;text-shadow:1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000;line-height:1.3;word-break:break-word}#chatlog .cm b{color:var(--xp)}#chatlog .cm.all b{color:var(--jump)}#chatlog .cm i{font-style:normal;color:var(--dim)}#chatlog .cm.sys{color:var(--dim)}
+#chatrow{display:none;align-items:center;gap:8px;margin-top:6px;background:var(--box);border:3px solid var(--edge);box-shadow:inset 0 0 0 2px var(--box2),4px 4px 0 #000;padding:4px 8px;pointer-events:auto}#chatrow .k{font-size:12px;color:var(--pdim);white-space:nowrap}#chatin{flex:1;min-width:0;font:inherit;font-size:15px;color:var(--pfg);background:transparent;border:0;outline:none}
+#chat.typing #chatrow,#chat.home #chatrow{display:flex}#chathint{display:none;margin-top:4px;font-size:12px;color:#fff;text-shadow:1px 1px 0 #000}#chat.on:not(.typing):not(.home) #chathint{display:block}
+#chat.home #chatlog{background:rgba(12,10,26,.45);padding:6px 8px;min-height:40px}#chat.home .cm b{color:var(--jump)}
+@media (max-height:560px){#chat.home{display:none}}
 </style>
 
 <canvas id="c"></canvas>
@@ -147,6 +154,8 @@ button.alt{background:var(--box);color:var(--pfg)}button.alt:hover,button.alt:fo
 <div id="koth" hidden></div>
 <div id="strike" hidden><div class="sb"><span class="tn t">ethans</span><span class="al" id="skalT"></span><b id="skT">0</b></div><div class="mid"><b id="sktime">0:25</b><span id="skphase">buy phase</span></div><div class="sb"><b id="skCT">0</b><span class="al" id="skalCT"></span><span class="tn ct">counter-ethans</span></div><div id="skmsg" hidden></div></div>
 <div id="preview" hidden><img id="pvimg" alt=""><span id="pvname"></span></div>
+<div id="online" hidden class="off"><b>…</b> connecting</div>
+<div id="chat"><div id="chatlog"></div><div id="chatrow"><span class="k" id="chatto">to everyone online</span><input id="chatin" type="text" maxlength="120" placeholder="say something" autocomplete="off" spellcheck="false"></div><div id="chathint">T to chat</div></div>
 <div id="xhair" hidden><i></i><i></i><i></i><i></i></div>
 <div id="hitmk"><i></i><i></i><i></i><i></i></div>
 <div id="killmk"><canvas id="kmc" class="pix" width="9" height="9"></canvas></div>
@@ -624,6 +633,7 @@ function onMsg(conn,m){ if(!m||typeof m!=='object')return; const from=conn.peer;
     else if(m.t==='exit'){ if(bossState==='dead')nextFloor(); }
     else if(m.t==='pvp'){ if(m.id==='host')pvpHit(m.from||from,m.dmg,m.kx,m.kz,m.frost,m.burn,m.thorn,m.stun); else { const bp=NET.players.get(m.id); if(bp&&bp.bot){ if(!(isStrike()&&bp.team===teamOf(m.from||from))){ if(m.burn){bp.burnT=3;bp.burnTk=0;} botHitBy(bp,m.dmg,m.from||from,!!m.frost,!!m.stun); if(m.dmg>0&&bp.hp>0){ bp.tx+=(m.kx||0)*0.15; bp.tz+=(m.kz||0)*0.15; } } } else { const c=NET.conns.get(m.id); if(c)netSend(c,{...m,from}); } } }
     else if(m.t==='chest'){ const c=chests[m.id]; if(c&&!c.open){ openChest(m.id,from); netBroadcast({t:'chestgone',id:m.id,by:from}); } }
+    else if(m.t==='chat'){ const pl=NET.players.get(from); const name=pl?pl.name:'ethan'; const s=String(m.s||'').slice(0,120); if(s.trim()){ netBroadcast({t:'chat',from:name,s},from); chatShow(name,s,'game'); } }
     else if(m.t==='say'){ bigmsg(m.s,1400); netBroadcast({t:'msg',s:m.s,ms:1400},from); }
     else if(m.t==='pk'){ if(m.to==='host'){ P.pk=(P.pk||0)+1; killmarker(); AU.kill(0,true); onPlayerKill(); } else { const pl=NET.players.get(m.to); if(pl&&pl.bot){ pl.pk=(pl.pk||0)+1; skBotKill(pl); } else { const c=NET.conns.get(m.to); if(c)netSend(c,{t:'pk'}); } } }
     else if(m.t==='rev'){ netBroadcast({t:'revive',id:m.id}); if(m.id==='host')reviveMe(); else { const pl=NET.players.get(m.id); if(pl)pl.down=false; } }
@@ -654,6 +664,7 @@ function onMsg(conn,m){ if(!m||typeof m!=='object')return; const from=conn.peer;
     else if(m.t==='leave'){ removePlayer(m.id); renderLobby(); }
     else if(m.t==='gm'){ setGameMode(m.gm); renderLobby(); }
     else if(m.t==='mode'){ if(!running){ MODE=m.mode==='strike'?'strike':m.mode==='arena'?'arena':'dungeon'; setModeUI(); reset(); renderLobby(); } }
+    else if(m.t==='chat'){ chatShow(String(m.from||'ethan').slice(0,16),String(m.s||'').slice(0,120),'game'); }
     else if(m.t==='nocpu'){ for(const [id,pl] of [...NET.players])if(pl.cpu)removePlayer(id); }
     else if(m.t==='sk'){ skApplyState(m.s); }
     else if(m.t==='skend'){ skApplyEnd(m); }
@@ -1271,6 +1282,49 @@ function botStrike(pl,dt){ pl.hold=false; if(!SK||SK.phase==='buy'||SK.phase==='
     if(pl.goalT<=0){ pl.goalT=R(5,9); if(B.planted){ skGoal(pl,B.x+R(-6,6),B.z+R(-6,6),4); } else if(R()<0.7){ const s=SK.sites[SK.botSite]; skGoal(pl,s.x+R(-5,5),s.z+R(-5,5),4); } else { const e=skEnemySpawn('T'); skGoal(pl,e.x+R(-6,6),e.z+R(-6,6),5); } } return; }
   if(B.planted){ const d=Math.hypot(pl.x-B.x,pl.z-B.z); if(d<2.2&&Math.abs(pl.y-B.y)<3){ pl.hold=true; pl.goal=null; if(!pl.tgt){ pl.defT=(pl.defT||0)+dt; if(pl.defT>=SK_T.defuse){ pl.defT=0; skDefused(pl.id); } } } else { pl.defT=0; skGoal(pl,B.x,B.z,1.2); } return; }
   if(pl.goalT<=0){ pl.goalT=R(5,9); pl.guard=pl.guard||(R()<0.5?'A':'B'); const s=SK.sites[pl.guard]; skGoal(pl,s.x+R(-6,6),s.z+R(-6,6),4); } }
+// ---------- chat (T in game, always open on the home screen) + presence hub: everyone online meets at one well-known peer id; whoever grabs it relays the live count and the home-screen chat ----------
+const CHAT={t:0,last:0,open:false};
+function chatShow(from,s,kind,quiet){ const box=$('chatlog'); const d=document.createElement('div'); d.className='cm '+(kind||''); if(kind==='all'&&running){ const k=document.createElement('i'); k.textContent='[all] '; d.appendChild(k); } const n=document.createElement('b'); n.textContent=from?from+': ':''; d.appendChild(n); d.appendChild(document.createTextNode(s)); box.appendChild(d); while(box.children.length>9)box.removeChild(box.firstChild); box.scrollTop=box.scrollHeight; if(!quiet){ CHAT.t=9; $('chat').classList.add('on'); if(kind!=='sys'&&document.activeElement!==$('chatin')&&AU.ready)AU.tone(AU.f(4,3),{type:'triangle',dur:0.05,vol:0.05,verb:0}); } }
+function chatOpen(){ if(CHAT.open)return; $('chatto').textContent=running?(NET.role?'to the lobby':'to yourself'):'to everyone online'; CHAT.open=true; $('chat').classList.add('on','typing'); if(document.pointerLockElement===cv)document.exitPointerLock(); for(const k in keys)keys[k]=false; fireDown=false; ads=false; const i=$('chatin'); i.value=''; i.focus(); }
+function chatClose(send){ const i=$('chatin'); const s=i.value.trim(); i.value=''; CHAT.open=false; $('chat').classList.remove('typing'); if(send&&s)chatSend(s); if(running&&!paused){ i.blur(); lockPointer(); } else if(!$('ov').hidden&&!$('start').hidden)i.focus(); else i.blur(); }
+function chatSend(s){ s=s.slice(0,120); const now=Date.now(); if(now-CHAT.last<600)return; CHAT.last=now; const name=uname||'anonymous ethan';
+  if(running){ if(NET.role==='host'){ netBroadcast({t:'chat',from:name,s}); chatShow(name,s,'game'); } else if(NET.role==='client'){ toHost({t:'chat',s}); chatShow(name,s,'game'); } else chatShow(name,s,'game'); }
+  else hubSend(s); }
+function chatTick(dt){ if(CHAT.t>0){ CHAT.t-=dt; if(CHAT.t<=0&&!CHAT.open&&running)$('chat').classList.remove('on'); } }
+$('chatin').addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter'){ e.preventDefault(); chatClose(true); } else if(e.key==='Escape'){ e.preventDefault(); chatClose(false); } });
+$('chatin').addEventListener('focus',()=>{ if(!CHAT.open){ CHAT.open=true; $('chat').classList.add('on','typing'); for(const k in keys)keys[k]=false; } });
+$('chatin').addEventListener('blur',()=>{ if(CHAT.open&&!running){ CHAT.open=false; $('chat').classList.remove('typing'); } });
+$('chatlog').addEventListener('click',()=>{ if(running&&!CHAT.open&&!paused&&!choosing)chatOpen(); });
+const HUB={id:'ethan-dungeon-hub-1',peer:null,role:null,conn:null,clients:new Map(),n:1,names:[],hist:[],retryT:null,lastRx:0};
+function hubStart(){ if(typeof Peer==='undefined'||HUB.peer)return; hubTryClient(); }
+function hubReset(delay){ if(HUB.peer){ try{HUB.peer.destroy();}catch(e){} } HUB.peer=null; HUB.conn=null; HUB.role=null; for(const [id,c] of HUB.clients){ try{c.conn.close();}catch(e){} } HUB.clients.clear(); clearTimeout(HUB.retryT); HUB.retryT=setTimeout(hubTryClient,delay==null?1000+Math.random()*2000:delay); hubCount(1); }
+function hubTryClient(){ HUB.role='joining'; hubCount(1); let peer; try{ peer=new Peer(undefined,window.PEER_OPTS||undefined); }catch(e){ hubReset(8000); return; } HUB.peer=peer; let done=false;
+  peer.on('open',()=>{ if(peer!==HUB.peer)return; const conn=peer.connect(HUB.id,{reliable:true}); HUB.conn=conn; const to=setTimeout(()=>{ if(!done){ done=true; hubTryHost(); } },7000);
+    conn.on('open',()=>{ done=true; clearTimeout(to); HUB.role='client'; HUB.lastRx=performance.now(); try{conn.send({t:'hi',name:uname||'ethan'});}catch(e){} hubCount(HUB.n); });
+    conn.on('data',m=>hubOnMsg(null,m)); conn.on('close',()=>{ if(HUB.peer===peer)hubReset(); }); conn.on('error',()=>{}); });
+  peer.on('error',e=>{ if(peer!==HUB.peer||done)return; done=true; if(e.type==='peer-unavailable')hubTryHost(); else hubReset(6000); });
+  peer.on('disconnected',()=>{ if(HUB.peer===peer&&HUB.role==='client')hubReset(); }); }
+function hubTryHost(){ if(HUB.peer){ try{HUB.peer.destroy();}catch(e){} HUB.peer=null; HUB.conn=null; } HUB.role='claiming'; let peer; try{ peer=new Peer(HUB.id,window.PEER_OPTS||undefined); }catch(e){ hubReset(8000); return; } HUB.peer=peer; let done=false;
+  peer.on('open',()=>{ if(peer!==HUB.peer)return; done=true; HUB.role='host'; HUB.clients.clear(); hubCount(); });
+  peer.on('connection',conn=>{ if(peer!==HUB.peer)return; conn.on('open',()=>{ HUB.clients.set(conn.peer,{conn,name:'ethan',seen:performance.now()}); try{conn.send({t:'hist',hist:HUB.hist.slice(-12)});}catch(e){} hubCount(); }); conn.on('data',m=>hubOnMsg(conn,m)); conn.on('close',()=>{ HUB.clients.delete(conn.peer); hubCount(); }); conn.on('error',()=>{}); });
+  peer.on('error',e=>{ if(peer!==HUB.peer)return; if(e.type==='unavailable-id'){ done=true; hubReset(300+Math.random()*1200); } else if(!done){ done=true; hubReset(6000); } });
+  peer.on('disconnected',()=>{ if(HUB.peer===peer&&HUB.role==='host')hubReset(); }); }
+function hubCount(n){ if(HUB.role==='host'){ HUB.n=1+HUB.clients.size; HUB.names=[uname||'ethan',...[...HUB.clients.values()].map(c=>c.name)]; hubBroadcast({t:'n',n:HUB.n,names:HUB.names}); } else if(n!=null)HUB.n=n; const el=$('online'); if(!el)return; const live=HUB.role==='host'||HUB.role==='client'; el.innerHTML=live?`<b>${HUB.n}</b> online`:'<b>…</b> connecting'; el.title=live?HUB.names.join(', '):'finding the others'; el.classList.toggle('off',!live); }
+function hubBroadcast(m){ for(const [id,c] of HUB.clients){ try{ if(c.conn.open)c.conn.send(m); }catch(e){} } }
+function hubOnMsg(conn,m){ if(!m||typeof m!=='object')return; HUB.lastRx=performance.now();
+  if(conn){ const c=HUB.clients.get(conn.peer); if(!c)return; c.seen=performance.now();
+    if(m.t==='hi'){ c.name=String(m.name||'ethan').replace(/[^\w .'-]/g,'').slice(0,12)||'ethan'; hubCount(); }
+    else if(m.t==='chat'){ const s=String(m.s||'').slice(0,120); if(!s.trim())return; const now=Date.now(); if(c.lastChat&&now-c.lastChat<600)return; c.lastChat=now; hubChat({from:c.name,s,ts:now}); }
+    else if(m.t==='ping'){ try{conn.send({t:'pong'});}catch(e){} } }
+  else { if(m.t==='n'){ HUB.names=Array.isArray(m.names)?m.names.map(x=>String(x).slice(0,12)):[]; hubCount(Math.max(1,m.n|0)); }
+    else if(m.t==='chat'){ const h={from:String(m.from||'ethan').slice(0,12),s:String(m.s||'').slice(0,120),ts:+m.ts||Date.now()}; HUB.hist.push(h); if(HUB.hist.length>30)HUB.hist.shift(); chatShow(h.from,h.s,'all'); }
+    else if(m.t==='hist'){ const L=(Array.isArray(m.hist)?m.hist:[]).slice(-12).map(h=>({from:String(h.from||'ethan').slice(0,12),s:String(h.s||'').slice(0,120),ts:+h.ts||0})); const known=new Set(HUB.hist.map(h=>h.ts+'|'+h.s)); for(const h of L){ if(known.has(h.ts+'|'+h.s))continue; HUB.hist.push(h); chatShow(h.from,h.s,'all',true); } if(HUB.hist.length>30)HUB.hist.splice(0,HUB.hist.length-30); }
+    else if(m.t==='ping'){ try{HUB.conn.send({t:'pong'});}catch(e){} } } }
+function hubChat(msg){ HUB.hist.push(msg); if(HUB.hist.length>30)HUB.hist.shift(); hubBroadcast({t:'chat',...msg}); chatShow(msg.from,msg.s,'all'); }
+function hubSend(s){ if(HUB.role==='host')hubChat({from:uname||'ethan',s,ts:Date.now()}); else if(HUB.role==='client'&&HUB.conn&&HUB.conn.open){ try{HUB.conn.send({t:'chat',s});}catch(e){} } else chatShow('','still connecting to the others — try again in a sec','sys'); }
+function hubName(){ if(HUB.role==='host')hubCount(); else if(HUB.role==='client'&&HUB.conn&&HUB.conn.open){ try{HUB.conn.send({t:'hi',name:uname||'ethan'});}catch(e){} } }
+setInterval(()=>{ if(HUB.role==='host'){ const now=performance.now(); let changed=false; for(const [id,c] of HUB.clients){ if(now-c.seen>22000){ try{c.conn.close();}catch(e){} HUB.clients.delete(id); changed=true; } else { try{c.conn.send({t:'ping'});}catch(e){} } } if(changed)hubCount(); } else if(HUB.role==='client'){ if(performance.now()-HUB.lastRx>26000)hubReset(); else { try{HUB.conn.send({t:'ping'});}catch(e){} } } },5000);
+addEventListener('pagehide',()=>{ try{ if(HUB.peer)HUB.peer.destroy(); }catch(e){} });
 // ---------- rift: lanes, camps, buffs ----------
 function laneWorld(name){ return RIFT.lanes[name].map(([tx,tz])=>riftWorld(tx,tz)); }
 function riftRoute(e,tp,d,dt){ // returns true and sets e.rmx/e.rmz/e.rsp when the ethan should follow its lane or hold its camp instead of hunting
@@ -1656,15 +1710,15 @@ function bobPlats(dt){}
 
 // ---------- loop ----------
 let last=performance.now();
-function frame(now){ let dt=Math.min(0.05,(now-last)/1000); last=now;
+function frame(now){ let dt=Math.min(0.05,(now-last)/1000); last=now; chatTick(dt);
   if(running&&((!paused&&!choosing)||NET.role)){ update(dt); bobPlats(dt); }
   else if(over){ for(const p of parts){p.life-=dt;if(!p.ring){p.vy-=20*dt;p.m.position.x+=p.vx*dt;p.m.position.y+=p.vy*dt;p.m.position.z+=p.vz*dt;p.m.material.opacity=p.life/p.max;}else{p.m.material.opacity=p.life/p.max;} if(p.life<=0)scene.remove(p.m);} parts=parts.filter(p=>p.life>0); for(const e of enemies){ e.sp.material.rotation=Math.sin(now/300+e.phase)*0.08; } }
   else if(!running){ camYaw+=dt*0.15; for(const e of enemies){ e.sp.material.rotation=Math.sin(now/300+e.phase)*0.08; e.g.position.y=e.y+Math.abs(Math.sin(now/140+e.phase))*0.18; } bobPlats(dt); }
   if(victory)updateVictory(dt); else if(P)updateCamera(dt); renderer.render(scene,camera); requestAnimationFrame(frame); }
 
 // ---------- overlay / input ----------
-function show(id){ if(document.pointerLockElement===cv)document.exitPointerLock(); $('ov').hidden=false; for(const p of ['start','lvl','dead','paused','shop'])$(p).hidden=p!==id; $('preview').hidden=id!=='start'; if(id==='start')updatePreview(); }
-function hideOv(){ $('ov').hidden=true; $('preview').hidden=true; }
+function show(id){ if(document.pointerLockElement===cv)document.exitPointerLock(); $('ov').hidden=false; for(const p of ['start','lvl','dead','paused','shop'])$(p).hidden=p!==id; $('preview').hidden=id!=='start'; $('online').hidden=id!=='start'; $('chat').classList.toggle('home',id==='start'); if(id==='start')updatePreview(); }
+function hideOv(){ $('ov').hidden=true; $('preview').hidden=true; $('online').hidden=true; $('chat').classList.remove('home'); if(CHAT.open&&!running)chatClose(false); }
 function startRun(fromNet){ if(texLoaded<SPRITES.length)return; if(NET.role==='client'&&!fromNet)return; AU.init(); if(AU.ctx.state==='suspended')AU.ctx.resume(); AU.restart(); if(!fromNet)buildMap(MAP); if(NET.role==='host'){ netBroadcast({t:'start',map:MAP,theme:THEME,seed:mapSeed,mode:MODE,amap:AMAP,gm:GM,lives:ARENA_LIVES,slots:slotMap()}); } reset(); for(const b of rbullets)scene.remove(b.m); rbullets=[]; for(const [id,pl] of NET.players){ if(pl.g){scene.remove(pl.g);pl.g=null;} pl.down=false; } NET.pend.clear(); NET.shots=[]; NET.lastWave=1; $('downmsg').style.display='none'; $('revbar').style.display='none'; if(pspr){player.remove(pspr);pspr=null;}
   orb.visible=false; eye.visible=false; pshadow.visible=true; pspr=makeSprite(skin,PH); pspr.position.y=-0.55; player.add(pspr); P.r=0.6;
   if(isArena()){ P.rate=1; P.dmg=14; P.bspd=42; P.range=1.3; P.maxhp=P.hp=100; P.lives=ARENA_LIVES; P.elim=false; P.spawnAt=0; myAltar=arenaSlot(NET.me); placeAtAltar(); setupKoth(); for(const bb of bbul)scene.remove(bb.m); bbul=[]; if(NET.role!=='client'&&keeperRoom>=0)spawnKeeper(); arenaWinner=null; $('xhair').hidden=false; document.body.classList.add('arena'); if(isStrike())skSetup(); else { if(NET.role!=='client'&&BOTCFG.n>0)after(0.05,()=>{ for(let i=0;i<BOTCFG.n;i++)spawnBot(true); log(`<b>${BOTCFG.n} cpu${BOTCFG.n>1?'s':''}</b> joined.`); }); pendingLevels=1; setTimeout(()=>{ if(running&&pendingLevels>0&&!choosing)showLevel(); },200); } }
@@ -1676,7 +1730,7 @@ for(const b of document.querySelectorAll('#gmodes button'))b.addEventListener('c
 for(const b of document.querySelectorAll('#amaps button'))b.addEventListener('click',()=>{ if(running||NET.role==='client')return; setArenaMap(b.dataset.a); AU.init(); AU.tone(AU.f(5,2),{type:'triangle',dur:0.2,vol:0.1,verb:0.4}); if(builtMap)buildMap(MAP); reset(); ensureRiftModel(); });
 $('modeword').addEventListener('click',()=>{ if(running||NET.role==='client')return; MODE=MODE==='dungeon'?'arena':MODE==='arena'?'strike':'dungeon'; AU.init(); AU.tone(AU.f(MODE==='strike'?9:isArena()?7:0,2),{type:'triangle',dur:0.25,vol:0.12,verb:0.5}); setModeUI(); reset(); if(NET.role==='host')netBroadcast({t:'mode',mode:MODE}); });
 $('livesrow').addEventListener('click',e=>{ const b=e.target.closest('button.lv'); if(!b)return; ARENA_LIVES=+b.dataset.l; $('livesrow').querySelectorAll('.lv').forEach(x=>x.classList.toggle('sel',+x.dataset.l===ARENA_LIVES)); });
-const ETHANIZE=v=>'ethan'.slice(0,Math.min(5,v.length)); uname=ETHANIZE(uname); $('uname').value=uname; $('uname').addEventListener('input',e=>{ e.target.value=ETHANIZE(e.target.value); uname=e.target.value; try{localStorage.setItem('ethan_name',uname);}catch(x){} syncLobbyMe(); });
+const ETHANIZE=v=>'ethan'.slice(0,Math.min(5,v.length)); uname=ETHANIZE(uname); $('uname').value=uname; $('uname').addEventListener('input',e=>{ e.target.value=ETHANIZE(e.target.value); uname=e.target.value; try{localStorage.setItem('ethan_name',uname);}catch(x){} syncLobbyMe(); hubName(); });
 function syncLobbyMe(){ if(NET.role==='client')toHost({t:'join',...myInfo()}); else if(NET.role==='host'){ ensurePlayer('host',{...myInfo(),host:true}); netBroadcast(rosterMsg()); renderLobby(); } }
 $('uname').addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter'){e.target.blur();startRun();} });
 function toMenu(){ $('cdwrap').hidden=true; $('chestring').hidden=true; if(victory){ scene.remove(victory.g); victory=null; } if(KOTH){ for(const h of KOTH.hills)worldGroup.remove(h.g); KOTH=null; } $('koth').hidden=true; for(const bb of bbul)scene.remove(bb.m); bbul=[]; running=false; paused=false; over=false; choosing=false; pendingLevels=0; reset(); for(const [id,pl] of NET.players){ if(pl.g){scene.remove(pl.g);pl.g=null;} } if(pspr){player.remove(pspr);pspr=null;} orb.visible=false; eye.visible=false; pshadow.visible=false; titleCrowd(); $('downmsg').style.display='none'; $('revbar').style.display='none'; show('start'); renderBoard(); if(NET.role==='client'){ $('go').hidden=true; $('mpwait').hidden=false; } }
@@ -1688,7 +1742,7 @@ function togglePause(){ if(!running||choosing||over)return; paused=!paused; if(p
 $('pauseb').onclick=togglePause; $('resume').onclick=togglePause;
 $('mute').onclick=()=>{ AU.on=!AU.on; $('mute').textContent='sound: '+(AU.on?'on':'off'); if(AU.ready)AU.master.gain.setTargetAtTime(AU.on?0.7:0,AU.ctx.currentTime,0.05); };
 $('jumpb').addEventListener('pointerdown',e=>{e.preventDefault();jumpPressed=true;});
-addEventListener('keydown',e=>{ if(e.key==='Tab'&&running&&isArena()){ e.preventDefault(); if(!e.repeat){ updateTabPanel(); $('tabpanel').hidden=false; if(document.pointerLockElement===cv)document.exitPointerLock(); } return; } if(e.key==='Shift'&&choosing)$('cards').classList.add('shift'); if(e.repeat)return; if(document.activeElement===$('uname')||document.activeElement===$('mpcode'))return; keys[e.code]=true;
+addEventListener('keydown',e=>{ if(document.activeElement===$('chatin'))return; if(e.code==='KeyT'&&running&&!paused&&!choosing&&!e.repeat&&!CHAT.open&&$('ov').hidden&&document.activeElement!==$('uname')&&document.activeElement!==$('mpcode')){ e.preventDefault(); chatOpen(); return; } if(e.key==='Tab'&&running&&isArena()){ e.preventDefault(); if(!e.repeat){ updateTabPanel(); $('tabpanel').hidden=false; if(document.pointerLockElement===cv)document.exitPointerLock(); } return; } if(e.key==='Shift'&&choosing)$('cards').classList.add('shift'); if(e.repeat)return; if(document.activeElement===$('uname')||document.activeElement===$('mpcode'))return; keys[e.code]=true;
   if((e.code==='KeyQ'||e.code==='KeyF')&&running)useActive(); if(e.code==='KeyB'&&running&&isArena()&&!e.repeat){ if(skFrozen())skShop(); else toggleClassMenu(); } if(e.code==='KeyX')spawnBot(); if(e.code==='KeyM')$('mute').click(); if(e.code==='KeyP'||e.code==='Escape'){ if(skShopOpen())skShop(false); else togglePause(); } if(skShopOpen()&&/^Digit[1-6]$/.test(e.code))skBuy(+e.code.slice(-1)-1); if(e.code==='Enter'&&skShopOpen())skReady();
   if(e.code==='Space'&&running&&!choosing&&!paused)jumpPressed=true;
   if(choosing&&['Digit1','Digit2','Digit3'].includes(e.code))pickTrait(+e.code.slice(-1)-1);
@@ -1717,7 +1771,7 @@ $('paused').addEventListener('click',e=>{ if(e.target.tagName!=='BUTTON')toggleP
 // ---------- load ----------
 function titleCrowd(){ if(texLoaded<SPRITES.length||running)return; for(let i=0;i<14;i++){ let x,z,tries=0; do{ x=(startTile[0]+RI(-7,7)+0.5)*TS; z=(startTile[1]+RI(-7,7)+0.5)*TS; }while(isNaN(floorTile(x,z))&&tries++<20); if(isNaN(floorTile(x,z)))continue; const e=spawnEnemy(Object.keys(ETYPES)[i%12],x,z); e.face=R()<0.5?-1:1; e.sp.scale.x*=e.face; } }
 function updatePreview(){ const img=$('pvimg'); if(img.dataset.s!==skin){ img.src='spr/'+skin+'.png'; img.dataset.s=skin; } $('pvname').textContent=myClass().n; }
-function boot(){ drawMarkers(); setModeUI(); updatePreview(); pshadow.visible=false; $('cdwrap').hidden=true; for(const k in FXDEF)fxTex(FXDEF[k][0]); for(const k in PROJ)fxTex(PROJ[k][0]); buildMap('dungeon'); reset(); show('start'); renderBoard(); renderFaces(); classInfo(); $('faces2').addEventListener('click',e=>{ const b=e.target.closest('button[data-s]'); if(b)pickSkin(b.dataset.s); }); $('faces2').addEventListener('mouseover',e=>{ const b=e.target.closest('button[data-s]'); if(b){ const C=CLASSES[b.dataset.s]; $('classinfo2').innerHTML=classHtml(C); } });
+function boot(){ drawMarkers(); setModeUI(); updatePreview(); pshadow.visible=false; $('cdwrap').hidden=true; hubStart(); for(const k in FXDEF)fxTex(FXDEF[k][0]); for(const k in PROJ)fxTex(PROJ[k][0]); buildMap('dungeon'); reset(); show('start'); renderBoard(); renderFaces(); classInfo(); $('faces2').addEventListener('click',e=>{ const b=e.target.closest('button[data-s]'); if(b)pickSkin(b.dataset.s); }); $('faces2').addEventListener('mouseover',e=>{ const b=e.target.closest('button[data-s]'); if(b){ const C=CLASSES[b.dataset.s]; $('classinfo2').innerHTML=classHtml(C); } });
   const L=new THREE.TextureLoader(); SPRITES.forEach(s=>L.load(`spr/${s}.png`,t=>{ t.encoding=THREE.sRGBEncoding; t.minFilter=THREE.LinearMipmapLinearFilter; TEX[s]=t; texLoaded++; $('loadmsg').textContent=texLoaded<SPRITES.length?`loading him… ${texLoaded}/${SPRITES.length}`:'';
     if(texLoaded===SPRITES.length)titleCrowd(); }));
   requestAnimationFrame(frame); }
