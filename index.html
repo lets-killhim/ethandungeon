@@ -33,6 +33,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-actio
 #ov{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(12,10,26,.78);
   padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow:auto}
 .panel{text-align:center;max-width:760px;width:100%;min-width:0}
+#ov.home{align-items:flex-start;padding-top:clamp(14px,5vh,52px)}
 h1{font-size:clamp(44px,9vw,84px);margin:0;font-weight:700;letter-spacing:-.02em;line-height:1;text-shadow:4px 4px 0 #000}
 h1 span{color:var(--mint)}
 h2{font-size:clamp(24px,5vw,38px);margin:0 0 6px;font-weight:700;text-shadow:3px 3px 0 #000}
@@ -2161,7 +2162,7 @@ function frame(now){ let dt=Math.min(0.05,(now-last)/1000); last=now; chatTick(d
   if(victory)updateVictory(dt); else if(isLegends()&&running&&LOL.on)lolCamera(dt); else if(P)updateCamera(dt); renderer.render(scene,camera); requestAnimationFrame(frame); }
 
 // ---------- overlay / input ----------
-function show(id){ if(document.pointerLockElement===cv)document.exitPointerLock(); $('ov').hidden=false; for(const p of ['start','lvl','dead','paused','shop'])$(p).hidden=p!==id; $('preview').hidden=id!=='start'; $('online').hidden=id!=='start'; $('chat').classList.toggle('home',id==='start'); if(id==='start'){ $('chatto').textContent='global chat'; $('chatin').placeholder='say something to everyone online'; } if(id==='start')updatePreview(); }
+function show(id){ if(document.pointerLockElement===cv)document.exitPointerLock(); $('ov').hidden=false; $('ov').classList.toggle('home',id==='start'); for(const p of ['start','lvl','dead','paused','shop'])$(p).hidden=p!==id; $('preview').hidden=id!=='start'; $('online').hidden=id!=='start'; $('chat').classList.toggle('home',id==='start'); if(id==='start'){ $('chatto').textContent='global chat'; $('chatin').placeholder='say something to everyone online'; } if(id==='start')updatePreview(); }
 function hideOv(){ $('ov').hidden=true; $('preview').hidden=true; $('online').hidden=true; $('chat').classList.remove('home'); if(CHAT.open)chatClose(false); }
 function startRun(fromNet){ if(texLoaded<SPRITES.length)return; if(NET.role==='client'&&!fromNet)return; AU.init(); if(AU.ctx.state==='suspended')AU.ctx.resume(); AU.restart(); if(!fromNet)buildMap(MAP); if(NET.role==='host'){ netBroadcast({t:'start',map:MAP,theme:THEME,seed:mapSeed,mode:MODE,amap:AMAP,gm:GM,lives:ARENA_LIVES,slots:slotMap()}); } reset(); for(const b of rbullets)scene.remove(b.m); rbullets=[]; for(const [id,pl] of NET.players){ if(pl.g){scene.remove(pl.g);pl.g=null;} pl.down=false; } NET.pend.clear(); NET.shots=[]; NET.lastWave=1; $('downmsg').style.display='none'; $('revbar').style.display='none'; if(pspr){player.remove(pspr);pspr=null;}
   orb.visible=false; eye.visible=false; pshadow.visible=true; pspr=makeSprite(skin,PH); pspr.position.y=-0.55; player.add(pspr); P.r=0.6;
