@@ -91,7 +91,7 @@ button.card:hover,button.card:focus-visible{background:color-mix(in srgb,var(--r
 #actb{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 92px);width:64px;height:64px;border-radius:50%;background:var(--xp);color:var(--bg);border:3px solid var(--edge);box-shadow:4px 4px 0 #000;font-size:13px;display:none;z-index:2;padding:0}
 @media (pointer:coarse){#jumpb,#actb{display:block}body.arena #fireb{display:block}}
 #skill{min-width:150px;text-align:center}#skill .bar i{background:var(--xp);transition:none}#skill.ready b{color:var(--xp)}#skill.used{transform:scale(1.08)}
-.classinfo{font-size:13px;line-height:1.45;margin:6px auto 10px;max-width:560px}
+.classinfo{font-size:13px;line-height:1.45;margin:6px auto 10px;max-width:560px}.kstats{display:grid;grid-template-columns:1fr 1fr;gap:2px 18px;margin:6px auto 0;max-width:360px;text-align:left}.kst{display:flex;align-items:center;justify-content:space-between;gap:8px}.kst .kn{color:var(--pdim);font-size:12px;text-transform:uppercase;letter-spacing:.04em}.kst .kb{display:inline-flex;gap:3px}.kst .kb i{display:inline-block;width:18px;height:9px;border:2px solid var(--edge);background:transparent;border-radius:3px}.kst .kb i.on{background:#ffe14d;box-shadow:inset 0 0 0 1px #d8b400}
 .faces{display:flex;justify-content:center;gap:3px;margin:10px 0;flex-wrap:nowrap}
 .faces button{height:72px;padding:3px 4px;min-width:0;flex:0 1 auto;background:var(--box);border:3px solid var(--edge);box-shadow:none;display:flex;align-items:center;justify-content:center}
 .faces img{height:58px;max-width:48px;object-fit:contain;filter:drop-shadow(2px 2px 0 #000)}
@@ -917,7 +917,7 @@ function useActive(){ if(!running||over||choosing||paused||P.down||P.cd>0||!myCl
   if(mirror&&MIRROR_ACTS.has(skin)){ const ox=P.x,oy=P.y,oz=P.z,hp=P.hp,dmg=P.dmg; P.x=mirror.x;P.y=mirror.y;P.z=mirror.z; P.dmg*=0.6; try{ C.act(); }finally{ P.x=ox;P.y=oy;P.z=oz; P.dmg=dmg; P.hp=Math.min(hp+ (P.hp-hp)*0,P.maxhp); P.hp=hp; } } }
 function lockPointer(){ if(isLegends())return; if(running&&!paused&&!choosing&&$('ov').hidden&&document.pointerLockElement!==cv){ try{ const r=cv.requestPointerLock(); if(r&&r.catch)r.catch(()=>{}); }catch(err){} } }
 function classHtml(C){ return `<div><b>${C.n}</b></div><div><span class="k">passive · </span>${C.p}</div>`+(C.a?`<div><span class="k">Q · </span><b>${C.a}</b> — ${C.ad} <span class="k">(${C.cd}s)</span></div>`:`<div><span class="k">no ability</span></div>`); }
-function classInfo(){ const C=myClass(); $('classinfo').innerHTML=classHtml(C); }
+function classInfo(){ const C=myClass(); $('classinfo').innerHTML=isKart()?kartStatHtml(skin):classHtml(C); }
 
 // ---------- traits ----------
 const TR=[
@@ -1786,8 +1786,33 @@ function lolUpdate(dt){ if(!LOL.on)return; if(NET.role!=='client')LOL.T+=dt; T=L
 // ---------- ethan kart: mario-kart handling (hop, drift, 3-stage mini-turbo, rocket start, slipstream, items, coins), procedural tracks, cpu racers ----------
 const KART={on:false,karts:[],byId:new Map(),objs:[],coins:[],boxes:[],pads:[],phase:'idle',T:0,raceT:0,cd:0,laps:3,track:null,tk:null,res:null,hudT:0,fx:[],skids:[],sparks:[],me:null,introT:0,results:null,resT:0,mm:null,rank:[],sunT:0};
 function isKart(){ return MODE==='kart'; }
-const KSTAT={ // mario-kart style class stats: max speed, acceleration, handling, weight (0..1 scales)
-  gym:{sp:1.06,ac:0.82,hd:0.78,wt:1.0,n:'heavy'},suit:{sp:1.02,ac:0.9,hd:0.9,wt:0.75,n:'medium'},summit:{sp:1.08,ac:0.78,hd:0.72,wt:1.0,n:'heavy'},grinch:{sp:0.98,ac:1.0,hd:1.02,wt:0.5,n:'light'},bow:{sp:0.95,ac:1.08,hd:1.1,wt:0.35,n:'feather'},headphones:{sp:1.0,ac:0.95,hd:0.95,wt:0.65,n:'medium'},beach:{sp:1.03,ac:0.92,hd:0.9,wt:0.7,n:'medium'},chain:{sp:1.0,ac:0.96,hd:1.0,wt:0.6,n:'medium'},shades:{sp:1.04,ac:0.88,hd:0.86,wt:0.8,n:'medium-heavy'},night:{sp:0.97,ac:1.02,hd:1.05,wt:0.5,n:'light'},moon:{sp:0.99,ac:0.98,hd:0.98,wt:0.6,n:'medium'},bikini:{sp:1.01,ac:0.94,hd:0.95,wt:0.65,n:'medium'},kitchen2:{sp:1.0,ac:1.0,hd:1.0,wt:0.6,n:'medium'} };
+const KSTAT={ // kart profiles, 1..5 bars: speed, acceleration, handling, traction, weight. every bar maps to a physics multiplier in kartStatOf()
+  kitchen2:{sp:3,ac:3,hd:3,tr:3,wt:3,n:'all-rounder'},
+  gym:{sp:5,ac:1,hd:2,tr:3,wt:5,n:'heavyweight'},
+  summit:{sp:4,ac:2,hd:2,tr:5,wt:4,n:'grip tank'},
+  shades:{sp:4,ac:2,hd:3,tr:3,wt:4,n:'cruiser'},
+  suit:{sp:4,ac:3,hd:3,tr:2,wt:3,n:'speed demon'},
+  beach:{sp:4,ac:3,hd:2,tr:2,wt:3,n:'slider'},
+  moon:{sp:3,ac:3,hd:3,tr:5,wt:3,n:'glued down'},
+  chain:{sp:3,ac:4,hd:3,tr:3,wt:2,n:'quick'},
+  bikini:{sp:3,ac:4,hd:3,tr:4,wt:2,n:'nimble'},
+  headphones:{sp:3,ac:3,hd:4,tr:4,wt:2,n:'carver'},
+  grinch:{sp:2,ac:4,hd:5,tr:2,wt:2,n:'drifter'},
+  night:{sp:2,ac:4,hd:4,tr:1,wt:2,n:'ice skater'},
+  bow:{sp:1,ac:5,hd:5,tr:3,wt:1,n:'featherweight'} };
+const KSTATN={sp:'speed',ac:'accel',hd:'handling',tr:'traction',wt:'weight'};
+function kartStatOf(sk){ const b=KSTAT[sk]||KSTAT.kitchen2; const u=v=>(v-1)/4; return {...b,
+  spM:0.90+0.18*u(b.sp),            // top speed ×0.90..1.08
+  acM:0.70+0.45*u(b.ac),            // acceleration ×0.70..1.15
+  hdM:0.74+0.34*u(b.hd),            // steering rate ×0.74..1.08 (also drift turn)
+  grip:0.0032*Math.pow(0.0625,u(b.tr)),   // velocity-follow base: 0.0032 (slidy) .. 0.0002 (grippy)
+  dgrip:0.045*Math.pow(0.22,u(b.tr)),     // same while drifting: 0.045 .. 0.01
+  slipA:0.30-0.14*u(b.tr),          // drift slip angle 0.30..0.16 rad
+  offM:0.40+0.24*u(b.tr),           // off-road top speed ×0.40..0.64
+  mass:0.35+0.9*u(b.wt),            // collision mass 0.35..1.25
+  hitKeep:0.22+0.2*u(b.wt),         // speed kept when spun out 0.22..0.42
+  bumpLoss:0.14-0.1*u(b.wt) }; }    // speed lost per bump as the lighter kart 0.14..0.04
+function kartStatHtml(sk){ const b=KSTAT[sk]||KSTAT.kitchen2; const C=CLASSES[sk]||{}; return `<div><b>${C.n||sk}</b> <span class="k">· ${b.n}</span></div><div class="kstats">`+['sp','ac','hd','tr','wt'].map(k=>`<div class="kst"><span class="kn">${KSTATN[k]}</span><span class="kb">${[1,2,3,4,5].map(i=>`<i${i<=b[k]?' class="on"':''}></i>`).join('')}</span></div>`).join('')+`</div>`; }
 const KTRACKS={
   circuit:{name:'ethan circuit',theme:'grass',w:24,laps:3,sky:0x8ec9ff,fog:[0xbfe0ff,220,720],pts:[[0,0,0],[120,0,-16],[240,0,-8],[320,0,-60],[340,0,-160],[300,0,-240],[200,0,-280],[120,0,-240],[80,0,-160],[0,0,-140],[-100,0,-180],[-200,0,-240],[-280,0,-180],[-300,0,-80],[-240,0,0],[-140,0,20],[-60,0,4]]},
   bay:{name:'beach bay',theme:'sand',w:22,laps:3,sky:0xa8dcff,fog:[0xd8ecff,220,720],pts:[[0,0,0],[100,0,-12],[190,4,-50],[240,8,-140],[220,12,-240],[140,12,-300],[40,8,-300],[-20,4,-240],[0,0,-160],[60,0,-120],[80,0,-60],[20,0,-40],[-60,0,-80],[-160,2,-140],[-260,6,-120],[-300,8,-30],[-240,4,50],[-120,0,50]]},
@@ -1845,9 +1870,9 @@ function kartMesh(skin,colHex){ const g=new THREE.Group(); const body=new THREE.
 const KCOL=[0xd9332f,0x2f6fd8,0x3aa84a,0xf2c94c,0xc77dff,0xff9a3d,0x5fd3c8,0xff8ac6,0x8a8a90,0x7a5c3a];
 // ---- karts ----
 const KMAXV=34, KMT=[0.9,2.0,3.2], KBOOST=[0.55,0.95,1.4];
-function kartNew(o){ const st=KSTAT[o.skin]||KSTAT.kitchen2; const k={id:o.id,owner:o.owner,bot:!!o.bot,remote:!!o.remote,skin:o.skin,name:o.name||'ethan',col:o.col||KCOL[KART.karts.length%KCOL.length],st,x:0,y:0,z:0,h:0,v:0,vx:0,vz:0,slip:0,drift:0,driftT:0,mt:0,stage:0,hopT:0,hy:0,vy:0,air:false,boostT:0,boostK:1,spinT:0,spinA:0,shrinkT:0,starT:0,invT:0,item:null,itemN:0,rollT:0,rollShow:null,coins:0,lap:1,s:0,lastS:0,prog:0,cpHalf:false,finished:false,finT:0,rank:1,steer:0,roll:0,pitch:0,sus:0,susV:0,hint:null,off:false,wallT:0,draftT:0,startHold:0,stall:false,inp:{acc:0,brake:0,steer:0,hop:0,drift:0,item:0,back:0},ai:{lat:0,latT:0,itemT:R(1,4),driftHold:0},tx:0,ty:0,tz:0,wheelA:0,skidT:0,sprkT:0,lastHit:0}; const m=kartMesh(k.skin,k.col); k.mesh=m; scene.add(m.g); KART.karts.push(k); KART.byId.set(k.id,k); return k; }
+function kartNew(o){ const st=kartStatOf(o.skin); const k={id:o.id,owner:o.owner,bot:!!o.bot,remote:!!o.remote,skin:o.skin,name:o.name||'ethan',col:o.col||KCOL[KART.karts.length%KCOL.length],st,x:0,y:0,z:0,h:0,v:0,vx:0,vz:0,slip:0,drift:0,driftT:0,mt:0,stage:0,hopT:0,hy:0,vy:0,air:false,boostT:0,boostK:1,spinT:0,spinA:0,shrinkT:0,starT:0,invT:0,item:null,itemN:0,rollT:0,rollShow:null,coins:0,lap:1,s:0,lastS:0,prog:0,cpHalf:false,finished:false,finT:0,rank:1,steer:0,roll:0,pitch:0,sus:0,susV:0,hint:null,off:false,wallT:0,draftT:0,startHold:0,stall:false,inp:{acc:0,brake:0,steer:0,hop:0,drift:0,item:0,back:0},ai:{lat:0,latT:0,itemT:R(1,4),driftHold:0},tx:0,ty:0,tz:0,wheelA:0,skidT:0,sprkT:0,lastHit:0}; const m=kartMesh(k.skin,k.col); k.mesh=m; scene.add(m.g); KART.karts.push(k); KART.byId.set(k.id,k); return k; }
 function kartPlace(k,slot){ const T=KART.track; const n=KART.karts.length; const back=8+slot*4.2; const side=(slot%2?1:-1)*(T.w/4); const q=kartQuery(T.S[0].x,T.S[0].z,0); const kk=(T.N-Math.round(back/1.5)+T.N)%T.N; const p=T.S[kk]; k.x=p.x+p.nx*side; k.z=p.z+p.nz*side; k.h=Math.atan2(p.tz,p.tx); k.y=p.y; k.hint=kk; k.s=p.s; k.lastS=p.s; k.lap=1; k.prog=0; k.v=0; k.vx=k.vz=0; k.mesh.g.position.set(k.x,k.y,k.z); k.mesh.g.rotation.y=-k.h+Math.PI/2; }
-function kartMaxV(k){ let m=KMAXV*k.st.sp*(1+0.01*Math.min(10,k.coins)); if(k.boostT>0)m*=k.boostK; else if(k.starT>0)m*=1.18; if(k.shrinkT>0)m*=0.72; if(k.off&&k.boostT<=0&&k.starT<=0)m*=0.52; if(k.bot)m*=k.ai.band||1; return m; }
+function kartMaxV(k){ let m=KMAXV*k.st.spM*(1+0.01*Math.min(10,k.coins)); if(k.boostT>0)m*=k.boostK; else if(k.starT>0)m*=1.18; if(k.shrinkT>0)m*=0.72; if(k.off&&k.boostT<=0&&k.starT<=0)m*=k.st.offM; if(k.bot)m*=k.ai.band||1; return m; }
 function kartBoost(k,dur,mul){ k.boostT=Math.max(k.boostT,dur); k.boostK=mul||1.32; if(k===KART.me)AU.tone(AU.f(7,3),{type:'sawtooth',dur:0.25,vol:0.1,slide:900,verb:0.3}); }
 function kartStep(k,dt){ const inp=k.inp; const max=kartMaxV(k); const T=KART.track; const racing=KART.phase==='race'||KART.phase==='finish'; const controllable=racing&&k.spinT<=0&&!k.stall;
   // timers
@@ -1858,14 +1883,14 @@ function kartStep(k,dt){ const inp=k.inp; const max=kartMaxV(k); const T=KART.tr
   else if(controllable&&inp.hop&&k.hopT<=0&&!k.drift){ k.air=true; k.vy=6.2; k.hopT=0.35; if(k===KART.me)AU.tone(AU.f(0,3),{type:'square',dur:0.07,vol:0.07,slide:300}); } if(k.hopT>0)k.hopT-=dt;
   // drift: hold the hop button through a corner; charge the mini-turbo; release for a boost
   if(k.drift){ if(!inp.drift||k.v<max*0.3||!controllable){ const st=k.stage; k.drift=0; k.slip=0; if(st>0)kartBoost(k,KBOOST[st-1],1.3); k.mt=0; k.stage=0; } else { k.driftT+=dt; const into=Math.max(0,k.steer*k.drift); k.mt+=dt*(0.8+0.7*into); k.stage=k.mt>=KMT[2]?3:k.mt>=KMT[1]?2:k.mt>=KMT[0]?1:0; } }
-  const turnBase=2.0*k.st.hd*(k.v<0?-0.6:1)*clamp(Math.abs(k.v)/7,0.25,1)*(Math.abs(k.v)>max*0.85?0.86:1);
-  let turn; if(k.drift){ turn=k.drift*(0.55+0.5*k.steer*k.drift)*turnBase; const slipTarget=k.drift*0.22; k.slip=lerp(k.slip,slipTarget,1-Math.pow(0.001,dt)); } else { turn=k.steer*turnBase*(k.air?0.35:1); k.slip=lerp(k.slip,0,1-Math.pow(0.0005,dt)); }
+  const turnBase=2.0*k.st.hdM*(k.v<0?-0.6:1)*clamp(Math.abs(k.v)/7,0.25,1)*(Math.abs(k.v)>max*0.85?0.86:1);
+  let turn; if(k.drift){ turn=k.drift*(0.55+0.5*k.steer*k.drift)*turnBase; const slipTarget=k.drift*k.st.slipA; k.slip=lerp(k.slip,slipTarget,1-Math.pow(0.001,dt)); } else { turn=k.steer*turnBase*(k.air?0.35:1); k.slip=lerp(k.slip,0,1-Math.pow(0.0005,dt)); }
   if(k.spinT>0)turn=0; k.h+=turn*dt;
   // speed
-  let acc=0; if(controllable){ if(inp.acc&&!inp.brake)acc=1; else if(inp.brake&&!inp.acc)acc=-1; } const accRate=22*k.st.ac*(k.boostT>0?2.2:1); if(acc>0){ const tgt=max; k.v+=(tgt-k.v)*clamp(accRate/Math.max(8,tgt)*dt*(k.v<tgt?1:4),0,1); } else if(acc<0){ if(k.v>0.5)k.v-=38*dt; else k.v=Math.max(-max*0.3,k.v-12*dt); } else { k.v-=k.v*dt*(k.off?2.2:0.9); } if(k.boostT>0&&k.v<max*0.98)k.v+=(max-k.v)*Math.min(1,dt*6); if(k.v>max)k.v-=(k.v-max)*Math.min(1,dt*(k.off?4:2.5));
+  let acc=0; if(controllable){ if(inp.acc&&!inp.brake)acc=1; else if(inp.brake&&!inp.acc)acc=-1; } const accRate=22*k.st.acM*(k.boostT>0?2.2:1); if(acc>0){ const tgt=max; k.v+=(tgt-k.v)*clamp(accRate/Math.max(8,tgt)*dt*(k.v<tgt?1:4),0,1); } else if(acc<0){ if(k.v>0.5)k.v-=38*dt; else k.v=Math.max(-max*0.3,k.v-12*dt); } else { k.v-=k.v*dt*(k.off?2.2:0.9); } if(k.boostT>0&&k.v<max*0.98)k.v+=(max-k.v)*Math.min(1,dt*6); if(k.v>max)k.v-=(k.v-max)*Math.min(1,dt*(k.off?4:2.5));
   if(k.stall){ k.v=0; }
   // velocity: heading rotated by the slip angle, blended with the previous velocity for weight
-  const dir=k.h-k.slip; const fx=Math.cos(dir),fz=Math.sin(dir); const kk=1-Math.pow(k.drift?0.02:0.0008,dt); k.vx=lerp(k.vx,fx*k.v,kk); k.vz=lerp(k.vz,fz*k.v,kk); const nx=k.x+k.vx*dt,nz=k.z+k.vz*dt;
+  const dir=k.h-k.slip; const fx=Math.cos(dir),fz=Math.sin(dir); const kk=1-Math.pow(k.drift?k.st.dgrip:k.st.grip,dt); k.vx=lerp(k.vx,fx*k.v,kk); k.vz=lerp(k.vz,fz*k.v,kk); const nx=k.x+k.vx*dt,nz=k.z+k.vz*dt;
   // track query, walls, off-road, height
   const q=kartQuery(nx,nz,k.hint); k.hint=q.k; const w=T.w; const lim=w/2+15; let lat=q.lat; if(Math.abs(lat)>lim){ const sgn=Math.sign(lat); const px=nx-q.nx*(lat-sgn*lim),pz=nz-q.nz*(lat-sgn*lim); k.x=px; k.z=pz; const vn=k.vx*q.nx+k.vz*q.nz; k.vx-=q.nx*vn*1.6; k.vz-=q.nz*vn*1.6; k.v*=0.45; if(k.wallT<=0){ k.wallT=0.5; if(k===KART.me){ doShake(0.3); AU.noise({dur:0.12,vol:0.25,type:'bandpass',f:300,fe:800,q:1,verb:0.1}); } burst(k.x,k.y+0.6,k.z,0xffffff,8,5,0.3,0.6); } k.h=Math.atan2(k.vz,k.vx)+k.slip; } else { k.x=nx; k.z=nz; }
   k.off=Math.abs(lat)>w/2+1.0; const slope=k.off?-(Math.abs(lat)-w/2-1)/15*1.2:0; const gy=q.y+slope; k.y=lerp(k.y,gy,1-Math.pow(0.0001,dt));
@@ -1899,7 +1924,7 @@ function kartUseItem(k,back){ const it=k.item; const fx=Math.cos(k.h),fz=Math.si
   else if(it==='blue'){ kartObj({kind:'blue',owner:k.id,x:k.x,z:k.z,y:k.y+3,h:k.h,v:58,life:30,blue:true}); if(me)bigmsg('blue shell',800); }
   else if(it==='bomb'){ kartObj({kind:'bomb',owner:k.id,x:ox,z:oz,y:k.y,h:k.h,v:Math.max(0,k.v*dirS)+26,vy:8,life:2.6,arc:true,bomb:true}); }
   if(me)AU.noise({dur:0.1,vol:0.15,type:'bandpass',f:700,fe:1500,q:1,verb:0.1}); }
-function kartHit(k,kind,from){ if(k.starT>0||k.invT>0||k.finished&&KART.phase==='finish'||k.spinT>0)return; k.spinT=kind==='blue'||kind==='bomb'?2.0:1.3; k.spinA=0; k.v*=0.3; k.drift=0; k.mt=0; k.stage=0; const lost=Math.min(3,k.coins); k.coins-=lost; for(let i=0;i<lost;i++)burst(k.x,k.y+1,k.z,0xffd23a,3,6,0.6,0.5); burst(k.x,k.y+0.8,k.z,kind==='banana'?0xf2e04c:0xffffff,16,7,0.6,0.8); if(k===KART.me){ doShake(kind==='blue'?0.9:0.5); AU.hurt(); } }
+function kartHit(k,kind,from){ if(k.starT>0||k.invT>0||k.finished&&KART.phase==='finish'||k.spinT>0)return; k.spinT=kind==='blue'||kind==='bomb'?2.0:1.3; k.spinA=0; k.v*=k.st.hitKeep; k.drift=0; k.mt=0; k.stage=0; const lost=Math.min(3,k.coins); k.coins-=lost; for(let i=0;i<lost;i++)burst(k.x,k.y+1,k.z,0xffd23a,3,6,0.6,0.5); burst(k.x,k.y+0.8,k.z,kind==='banana'?0xf2e04c:0xffffff,16,7,0.6,0.8); if(k===KART.me){ doShake(kind==='blue'?0.9:0.5); AU.hurt(); } }
 function kartZap(from){ for(const k of KART.karts){ if(k.id===from||k.remote)continue; if(k.starT>0)continue; k.shrinkT=6; k.spinT=Math.max(k.spinT,0.8); k.v*=0.5; k.drift=0; k.mt=0; burst(k.x,k.y+1,k.z,0xffe14d,14,8,0.6,0.7); } if(from!==NET.me&&KART.me){ } }
 function kartApplyHit(id,kind,from){ const k=KART.byId.get(id); if(!k)return; if(k===KART.me||(k.bot&&!k.remote))kartHit(k,kind,from); }
 // ---- thrown / dropped objects (owner-simulated; others see them through the owner's state) ----
@@ -1963,7 +1988,7 @@ function kartUpdate(dt){ if(!KART.on)return; KART.T+=dt; if(logT>0)logT-=dt; T=K
   // simulate: me + bots (host) + finished karts drive themselves
   for(const k of KART.karts){ if(k.remote)continue; if(k.bot||k.finished){ if(KART.phase==='race'||KART.phase==='finish')kartBotThink(k,dt); } kartStep(k,dt); }
   // kart vs kart bumping (local authority over my own kart / host over bots)
-  for(let i=0;i<KART.karts.length;i++)for(let j=i+1;j<KART.karts.length;j++){ const a=KART.karts[i],b=KART.karts[j]; const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz); if(d<2.3&&d>0.01){ const nx=dx/d,nz=dz/d; const push=(2.3-d); const wa=a.st.wt,wb=b.st.wt; if(!a.remote){ a.x-=nx*push*(wb/(wa+wb)); a.z-=nz*push*(wb/(wa+wb)); if(a.starT>0&&b.starT<=0)kartSendHit(b,'star',a.id); } if(!b.remote){ b.x+=nx*push*(wa/(wa+wb)); b.z+=nz*push*(wa/(wa+wb)); if(b.starT>0&&a.starT<=0)kartSendHit(a,'star',b.id); } const rv=(a.vx-b.vx)*nx+(a.vz-b.vz)*nz; if(rv>0){ if(!a.remote){ a.vx-=nx*rv*0.5*(wb/(wa+wb)); a.vz-=nz*rv*0.5*(wb/(wa+wb)); } if(!b.remote){ b.vx+=nx*rv*0.5*(wa/(wa+wb)); b.vz+=nz*rv*0.5*(wa/(wa+wb)); } } } }
+  for(let i=0;i<KART.karts.length;i++)for(let j=i+1;j<KART.karts.length;j++){ const a=KART.karts[i],b=KART.karts[j]; const dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz); if(d<2.3&&d>0.01){ const nx=dx/d,nz=dz/d; const push=(2.3-d); const wa=a.st.mass,wb=b.st.mass; if(!a.remote){ a.x-=nx*push*(wb/(wa+wb)); a.z-=nz*push*(wb/(wa+wb)); if(a.starT>0&&b.starT<=0)kartSendHit(b,'star',a.id); } if(!b.remote){ b.x+=nx*push*(wa/(wa+wb)); b.z+=nz*push*(wa/(wa+wb)); if(b.starT>0&&a.starT<=0)kartSendHit(a,'star',b.id); } const rv=(a.vx-b.vx)*nx+(a.vz-b.vz)*nz; if(rv>0){ if(!a.remote){ a.vx-=nx*rv*0.5*(wb/(wa+wb)); a.vz-=nz*rv*0.5*(wb/(wa+wb)); if(wb>wa)a.v*=1-a.st.bumpLoss*Math.min(1,rv/8); } if(!b.remote){ b.vx+=nx*rv*0.5*(wa/(wa+wb)); b.vz+=nz*rv*0.5*(wa/(wa+wb)); if(wa>wb)b.v*=1-b.st.bumpLoss*Math.min(1,rv/8); } } } }
   kartSyncRemote(dt); kartUpdateObjs(dt); kartRemoteObjs(dt);
   // ranks
   const order=[...KART.karts].sort((a,b)=>(a.finished&&b.finished)?a.finT-b.finT:a.finished?-1:b.finished?1:b.prog-a.prog); order.forEach((k,i)=>k.rank=i+1); KART.rank=order;
@@ -2405,7 +2430,7 @@ function startRun(fromNet){ if(texLoaded<SPRITES.length)return; if(NET.role==='c
   else { $('xhair').hidden=true; document.body.classList.remove('arena'); }
   applyClass(); NET.startedAt=performance.now(); running=true; paused=false; hideOv(); last=performance.now(); }
 $('go').onclick=startRun;
-function setModeUI(){ if(isStrike())setArenaMap('dust2'); if(isLegends()){ if(AMAP!=='rift'&&AMAP!=='abyss')setArenaMap('rift'); } else if(AMAP==='rift'||AMAP==='abyss')setArenaMap('dust2'); $('lmaps').hidden=!isLegends()||NET.role==='client'; $('kmaps').hidden=!isKart()||NET.role==='client'; if(isArena())ensureRiftModel(); $('modeword').textContent=MODE; $('maps').hidden=isArena()||isKart(); $('modeword').title='click to switch mode · '+(MODE==='dungeon'?'arena next':MODE==='arena'?'strike next':MODE==='strike'?'legends next':MODE==='legends'?'kart next':'dungeon next'); $('maps').hidden=isArena()||isKart(); $('amaps').hidden=!isArena()||NET.role==='client'||isStrike()||isLegends(); $('gmodes').hidden=!isArena()||NET.role==='client'||isStrike()||isLegends(); renderTeamRows(); if(isArena()){ MAP='dungeon'; } $('livesrow').hidden=true; if(!running&&builtMap)buildMap(MAP); }
+function setModeUI(){ classInfo(); if(isStrike())setArenaMap('dust2'); if(isLegends()){ if(AMAP!=='rift'&&AMAP!=='abyss')setArenaMap('rift'); } else if(AMAP==='rift'||AMAP==='abyss')setArenaMap('dust2'); $('lmaps').hidden=!isLegends()||NET.role==='client'; $('kmaps').hidden=!isKart()||NET.role==='client'; if(isArena())ensureRiftModel(); $('modeword').textContent=MODE; $('maps').hidden=isArena()||isKart(); $('modeword').title='click to switch mode · '+(MODE==='dungeon'?'arena next':MODE==='arena'?'strike next':MODE==='strike'?'legends next':MODE==='legends'?'kart next':'dungeon next'); $('maps').hidden=isArena()||isKart(); $('amaps').hidden=!isArena()||NET.role==='client'||isStrike()||isLegends(); $('gmodes').hidden=!isArena()||NET.role==='client'||isStrike()||isLegends(); renderTeamRows(); if(isArena()){ MAP='dungeon'; } $('livesrow').hidden=true; if(!running&&builtMap)buildMap(MAP); }
 for(const b of document.querySelectorAll('#gmodes button'))b.addEventListener('click',()=>{ if(running||NET.role==='client')return; setGameMode(b.dataset.g); if(NET.role==='host')netBroadcast({t:'gm',gm:GM}); AU.init(); AU.tone(AU.f(3,2),{type:'triangle',dur:0.2,vol:0.1,verb:0.4}); });
 for(const b of document.querySelectorAll('#kmaps button'))b.addEventListener('click',()=>{ if(running||NET.role==='client'||!isKart())return; KMAP=b.dataset.k; for(const x of document.querySelectorAll('#kmaps button'))x.classList.toggle('sel',x===b); AU.init(); AU.tone(AU.f(5,2),{type:'triangle',dur:0.2,vol:0.1,verb:0.4}); buildMap(MAP); reset(); if(NET.role==='host')netBroadcast({t:'kmap',k:KMAP}); });
 for(const b of document.querySelectorAll('#lmaps button'))b.addEventListener('click',()=>{ if(running||NET.role==='client'||!isLegends())return; setArenaMap(b.dataset.l); AU.init(); AU.tone(AU.f(5,2),{type:'triangle',dur:0.2,vol:0.1,verb:0.4}); if(builtMap)buildMap(MAP); reset(); ensureRiftModel(); if(NET.role==='host')netBroadcast({t:'amap',k:AMAP}); });
